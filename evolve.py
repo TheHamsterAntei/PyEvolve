@@ -1,11 +1,11 @@
-#Version 1.0.5
+#Version 1.0.6
 import tkinter
 import time
 import numpy as np
 
 root = tkinter.Tk()
 root.title("Evolve")
-root.geometry("1000x700")
+root.geometry("1200x800")
 move_dict = ['up', 'right', 'down', 'left']
 photo_eff = 1.2
 table_mode = tkinter.IntVar()
@@ -17,7 +17,7 @@ class Table:
         self.width = width
         self.height = height
         self.data = [[0 for j in range(0, height)] for i in range(0, width)]
-        self.life = [Alive(19, 14, canvas, self, 100)]
+        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100)]
         self.food_data = [[np.random.uniform(10, 100) for j in range(0, height)] for i in range(0, width)]
         self.food_data_images = [[None for j in range(0, height)] for i in range(0, width)]
         self.step = 0
@@ -30,8 +30,8 @@ class Table:
         self.stat_blue = None
         self.stat_energy = None
         self.stat_food = None
-        self.stat_count = [None for i in range(0, 212)]
-        self.stat_count_value = [0 for i in range(0, 212)]
+        self.stat_count = [None for i in range(0, 262)]
+        self.stat_count_value = [0 for i in range(0, 262)]
         self.stat_photo = None
         self.draw_stats()
 
@@ -146,7 +146,7 @@ class Table:
                     self.canvas.delete(self.stat_count[i])
                 value = (self.stat_count_value[i] / value_max) * 99
                 self.stat_count[i] = self.canvas.create_rectangle(
-                    152 + (i * 4), 700, 155 + (i * 4), 700 - value,
+                    152 + (i * 4), 800, 155 + (i * 4), 800 - value,
                     outline=rgb(510 - (value * 5.1), value * 5.1, 0),
                     fill=rgb(510 - (value * 5.1), value * 5.1, 0)
                 )
@@ -159,32 +159,32 @@ class Table:
             for j in range (0, len(self.food_data[i])):
                 world_food += self.food_data[i][j] / (self.width * self.height)
         self.stat_red = self.canvas.create_rectangle(
-            0, 700, 15, 700 - (world_red * 99 / 255),
+            0, 800, 15, 800 - (world_red * 99 / 255),
             outline=rgb(255, 0, 0),
             fill=rgb(255, 0, 0)
         )
         self.stat_green = self.canvas.create_rectangle(
-            16, 700, 30, 700 - (world_green * 99 / 255),
+            16, 800, 30, 800 - (world_green * 99 / 255),
             outline=rgb(0, 255, 0),
             fill=rgb(0, 255, 0)
         )
         self.stat_blue = self.canvas.create_rectangle(
-            31, 700, 45, 700 - (world_blue * 99 / 255),
+            31, 800, 45, 800 - (world_blue * 99 / 255),
             outline=rgb(0, 0, 255),
             fill=rgb(0, 0, 255)
         )
         self.stat_energy = self.canvas.create_rectangle(
-            46, 700, 60, 700 - ((min(500, world_energy) * 99) / 500),
+            46, 800, 60, 800 - ((min(500, world_energy) * 99) / 500),
             outline=rgb(30, 180, 210),
             fill=rgb(30, 180, 210)
         )
         self.stat_food = self.canvas.create_rectangle(
-            61, 700, 75, 700 - (world_food * 99 / 255),
+            61, 800, 75, 800 - (world_food * 99 / 255),
             outline=rgb(180, 180, 180),
             fill=rgb(180, 180, 180)
         )
         self.stat_photo = self.canvas.create_rectangle(
-            76, 700, 90, 700 - (photo_eff * 99 / 1.2),
+            76, 800, 90, 800 - (photo_eff * 99 / 1.2),
             outline=rgb(180, 180, 180),
             fill=rgb(160, 140, 30)
         )
@@ -209,16 +209,16 @@ class Alive:
         self.speed = 1.0
         self.membrane = 0.5
         #Цвет
-        self.red_color = 200
-        self.green_color = 30
-        self.blue_color = 200
+        self.red_color = 255
+        self.green_color = 0
+        self.blue_color = 255
         #Интеллект
         self.dec_move = 3.0
         self.dec_mult = 1.0
         self.dec_noth = 0.0
 
         #Генетические свойства
-        self.can_photo = 1 #Может ли питаться от энергии солнца
+        self.can_photo = 0 #Может ли питаться от энергии солнца
         self.can_assim = 1 #Может ли питаться от органики в почве
 
         #Внесение данных
@@ -431,22 +431,31 @@ def rgb(red, green, blue):
 
 
 def main():
-    canvas = tkinter.Canvas(root, width=1000, height=700, bg='white')
+    countdown = 200
+    canvas = tkinter.Canvas(root, width=1200, height=800, bg='white')
     #canvas.pack(fill=tkinter.BOTH, expand=0)
-    canvas.place(x=0, y=0, width=1000, height=700)
-    canvas.create_line(0, 600, 1000, 600, fill=rgb(0, 0, 0))
-    canvas.create_line(151, 600, 151, 700, fill=rgb(0, 0, 0))
-    canvas.create_line(800, 0, 800, 600, fill=rgb(0, 0, 0))
-    table = Table(canvas, 40, 30)
+    canvas.place(x=0, y=0, width=1200, height=800)
+    canvas.create_line(0, 700, 12000, 700, fill=rgb(0, 0, 0))
+    canvas.create_line(151, 700, 151, 800, fill=rgb(0, 0, 0))
+    canvas.create_line(1000, 0, 1000, 700, fill=rgb(0, 0, 0))
+    table = Table(canvas, 50, 35)
     #Объявление кнопок
     tm1 = tkinter.Radiobutton(text='Выключить всё', variable=table_mode, value=0, bg='white',
-                              command=lambda i=table: table.change_mode()).place(x=806, y=10)
+                              command=lambda i=table: table.change_mode()).place(x=1006, y=10)
     tm2 = tkinter.Radiobutton(text='Отобразить богатство органикой', variable=table_mode, value=1, bg='white',
-                              command=lambda i=table: table.change_mode()).place(x=806, y=30)
+                              command=lambda i=table: table.change_mode()).place(x=1006, y=30)
     #tm3 = tkinter.Radiobutton(text='Выключить всё', variable=table_mod, value=0, bg='white').place(x=806, y=10)
-    while len(table.life) > 0:
+    while True:
         time.sleep(0.08)
-        table.next()
+        if len(table.life) > 0:
+            table.next()
+        else:
+            if countdown == 0:
+                table.life.append(Alive(np.random.randint(0, table.width), np.random.randint(0, table.height), canvas,
+                                        table, 100))
+                countdown = 200
+            else:
+                countdown -= 1
         root.update()
     root.mainloop()
 
