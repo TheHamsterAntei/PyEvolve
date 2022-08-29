@@ -1,4 +1,4 @@
-#Version 1.0.2
+#Version 1.0.3
 import tkinter
 import time
 import numpy as np
@@ -32,25 +32,20 @@ class Table:
         self.stat_food = None
         self.stat_count = [None for i in range(0, 212)]
         self.stat_count_value = [0 for i in range(0, 212)]
+        self.stat_photo = None
         self.draw_stats()
 
     def change_mode(self):
         mode = table_mode.get()
-        if mode == 0:
+        if mode != 1:
             self.undraw_food()
         if mode == 1:
             self.draw_food()
 
     def next(self):
         self.step += 1
-        if self.step % 3000 >= 0 and self.step % 3000 < 1200:
-            photo_eff = 1.2
-        if self.step % 3000 >= 1200 and self.step % 3000 < 1600:
-            photo_eff = 0.3
-        if self.step % 3000 >= 1600 and self.step % 3000 < 2600:
-            photo_eff = 0.0
-        if self.step % 3000 >= 2600 and self.step % 3000 < 3000:
-            photo_eff = 0.3
+        global photo_eff
+        photo_eff = 1.2 * np.sin((self.step % (900 * np.pi)) / 900)
         for i in self.life:
             i.next()
         self.food_refresh()
@@ -109,6 +104,8 @@ class Table:
             self.canvas.delete(self.stat_energy)
         if self.stat_food != None:
             self.canvas.delete(self.stat_food)
+        if self.stat_photo != None:
+            self.canvas.delete(self.stat_photo)
         world_red = 0
         world_green = 0
         world_blue = 0
@@ -127,8 +124,8 @@ class Table:
                 value = (self.stat_count_value[i] / value_max) * 99
                 self.stat_count[i] = self.canvas.create_rectangle(
                     152 + (i * 4), 700, 155 + (i * 4), 700 - value,
-                    outline=rgb(255 - (value * 2.55), value * 2.55, 0),
-                    fill=rgb(255 - (value * 2.55), value * 2.55, 0)
+                    outline=rgb(510 - (value * 5.1), value * 5.1, 0),
+                    fill=rgb(510 - (value * 5.1), value * 5.1, 0)
                 )
         for i in self.life:
             world_red += i.red_color / len(self.life)
@@ -162,6 +159,11 @@ class Table:
             61, 700, 75, 700 - (world_food * 99 / 255),
             outline=rgb(180, 180, 180),
             fill=rgb(180, 180, 180)
+        )
+        self.stat_photo = self.canvas.create_rectangle(
+            76, 700, 90, 700 - (photo_eff * 99 / 1.2),
+            outline=rgb(180, 180, 180),
+            fill=rgb(160, 140, 30)
         )
 
 
@@ -237,8 +239,14 @@ class Alive:
                 return
         if self.energy > self.invest:
             self.energy -= self.invest * (1 - self.dec_noth)
-            self.movement += self.invest * self.dec_move
-            self.mult += self.invest * self.dec_mult
+            if self.movement < 30:
+                self.movement += self.invest * self.dec_move
+            else:
+                self.energy += self.invest * self.dec_mult
+            if self.mult < 75:
+                self.mult += self.invest * self.dec_mult
+            else:
+                self.energy += self.invest * self.dec_mult
         if self.movement >= 5 * (1 / (0.2 + self.speed)):
             if self.move(move_dict[np.random.randint(0, 4)]):
                 self.movement -= 5 * (1 / (0.2 + self.speed))
