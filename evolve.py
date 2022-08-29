@@ -1,4 +1,4 @@
-#Version 1.1.1
+#Version 1.1.2
 import tkinter
 import time
 import learning
@@ -24,6 +24,11 @@ class Table:
         self.step = 0
         if table_mode.get() == 1:
             self.draw_food()
+        for i in range(0, width):
+            for j in range(0, height):
+                if self.isfree(i, j):
+                    if np.random.choice([0, 1], p=[0.98, 0.02]):
+                        self.life.append(Alive(i, j, canvas, self, 100))
 
         #Статистика
         self.stat_red = None
@@ -219,7 +224,7 @@ class Alive:
         self.blue_color = 255
         #Интеллект
         if energy != 45:
-            self.neuro = learning.NeuralNet(learning.generate_layers([6, 8, 3]))
+            self.neuro = learning.NeuralNet(learning.generate_layers([6, 16, 7]))
         else:
             self.neuro = None
 
@@ -260,7 +265,7 @@ class Alive:
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
             new_neuro = self.neuro.copy()
-            new_neuro.mutate_weights(0.001)
+            new_neuro.mutate_weights(0.0002)
             child.neuro = new_neuro
         if major_mutate == 1:
             child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30])
@@ -277,7 +282,7 @@ class Alive:
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.995, 0.005])
             child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25])
             new_neuro = self.neuro.copy()
-            new_neuro.mutate_weights(0.005)
+            new_neuro.mutate_weights(0.001)
             child.neuro = new_neuro
         if major_mutate == 2:
             child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
@@ -295,7 +300,7 @@ class Alive:
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
             new_neuro = self.neuro.copy()
-            new_neuro.mutate_weights(0.001)
+            new_neuro.mutate_weights(0.0002)
             child.neuro = new_neuro
         #Основные характеристики
         child.speed = max(0, min(5.0, child.speed))
@@ -314,8 +319,8 @@ class Alive:
 
     def dec_normalize(self):
         dec_move_new = self.dec_move / (self.dec_move + self.dec_mult + self.dec_noth)
-        dec_mult_new = self.dec_move / (self.dec_move + self.dec_mult + self.dec_noth)
-        dec_noth_new = self.dec_move / (self.dec_move + self.dec_mult + self.dec_noth)
+        dec_mult_new = self.dec_mult / (self.dec_move + self.dec_mult + self.dec_noth)
+        dec_noth_new = self.dec_noth / (self.dec_move + self.dec_mult + self.dec_noth)
         self.dec_move = dec_move_new
         self.dec_mult = dec_mult_new
         self.dec_noth = dec_noth_new
@@ -340,15 +345,22 @@ class Alive:
             if self.energy <= 0:
                 self.death()
                 return
+        result = self.look_around()
+        result.append(self.energy)
+        decisions = self.neuro.get_output(result)
+        self.dec_move = decisions[0]
+        self.dec_mult = decisions[1]
+        self.dec_noth = decisions[2]
+        move_dir_values = decisions[3:]
+        move_dir_max = max(move_dir_values[0], move_dir_values[1], move_dir_values[2], move_dir_values[3])
+        move_dir = -1
+        for i in range(0, 4):
+            if move_dir_values[i] == move_dir_max:
+                move_dir = i
+        if move_dir == -1:
+            move_dir = np.random.randint(0, 4)
+        self.dec_normalize()
         if self.energy > self.invest:
-            if self.neuro != None:
-                result = self.look_around()
-                result.append(self.energy)
-                decisions = self.neuro.get_output(result)
-                self.dec_move = decisions[0]
-                self.dec_mult = decisions[1]
-                self.dec_noth = decisions[2]
-                self.dec_normalize()
             self.energy -= self.invest * (1 - self.dec_noth)
             if self.movement < 3 * (5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)):
                 self.movement += self.invest * self.dec_move
@@ -359,16 +371,11 @@ class Alive:
             else:
                 self.energy += self.invest * self.dec_mult
         if self.movement >= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane):
-            if self.move(move_dict[np.random.randint(0, 4)]):
+            if self.move(move_dict[move_dir]):
                 self.movement -= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)
         if self.mult >= 45 + 5 * (0.5 + self.membrane):
-            if self.neuro != None:
-                if self.multiply():
-                    self.mult -= 45 + 5 * (0.5 + self.membrane)
-            else:
-                self.red_color = 255
-                self.green_color = 255
-                self.blue_color = 255
+            if self.multiply():
+                self.mult -= 45 + 5 * (0.5 + self.membrane)
 
     def look_around(self):
         output = [self.table.food_data[self.x][self.y]]
