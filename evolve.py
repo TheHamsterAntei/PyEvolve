@@ -1,4 +1,4 @@
-#Version 1.0.3
+#Version 1.0.4
 import tkinter
 import time
 import numpy as np
@@ -66,9 +66,32 @@ class Table:
     def food_refresh(self):
         for i in range(0, self.width):
             for j in range(0, self.height):
-                self.food_data[i][j] += np.random.uniform(0, 1.35)
-                if self.food_data[i][j] > 200:
-                    self.food_data[i][j] = 200
+                self.food_data[i][j] += np.random.choice(
+                    [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
+                    p=[0.1, 0.15, 0.72, 0.03])
+                if self.food_data[i][j] > 215:
+                    t = [0, 0, 0, 0]
+                    if j > 0:
+                        t[0] = 1
+                    if i < self.width - 1:
+                        t[1] = 1
+                    if j < self.height - 1:
+                        t[2] = 1
+                    if i > 0:
+                        t[3] = 1
+                    n = t.count(1)
+                    if n > 0:
+                        r = (self.food_data[i][j] - 215) / n
+                        self.food_data[i][j] = 215
+                        if t[0] == 1:
+                            self.food_data[i][j - 1] += r
+                        if t[1] == 1:
+                            self.food_data[i + 1][j] += r
+                        if t[2] == 1:
+                            self.food_data[i][j + 1] += r
+                        if t[3] == 1:
+                            self.food_data[i - 1][j] += r
+
 
     def draw_food(self):
         for i in range(0, self.width):
@@ -111,7 +134,7 @@ class Table:
         world_blue = 0
         world_energy = 0
         world_food = 0
-        if self.step % 7 == 0:
+        if self.step % 50 == 0:
             self.stat_count_value.pop()
             self.stat_count_value.insert(0, len(self.life))
             value_max = 0
@@ -182,34 +205,85 @@ class Alive:
         self.mult = 0.0
         self.age = 0
 
-        #Геном
+        #Генетические характеристики
         self.speed = 1.0
+        self.membrane = 0.5
+        #Цвет
         self.red_color = 255
         self.green_color = 0
         self.blue_color = 255
+        #Интеллект
         self.dec_move = 3.0
         self.dec_mult = 1.0
         self.dec_noth = 0.0
+
+        #Генетические свойства
+        self.can_photo = 1 #Может ли питаться от энергии солнца
+        self.can_assim = 1 #Может ли питаться от органики в почве
 
         #Внесение данных
         self.table.data[self.x][self.y] = 1
         self.image = self.draw()
 
     def draw(self):
-        return self.canvas.create_rectangle(
+        image = [self.canvas.create_rectangle(
             self.x * 20, self.y * 20, self.x * 20 + 19, self.y * 20 + 19,
-            outline=rgb(0, 0, 0), fill=rgb(self.red_color, self.green_color, self.blue_color)
-        )
+            outline=rgb(0, 0, 0), fill=rgb(self.red_color, self.green_color, self.blue_color))]
+        if self.can_photo == 1:
+            image.append(self.canvas.create_line(self.x * 20, self.y * 20, self.x * 20 + 19, self.y * 20 + 19,
+                                             fill=rgb(0, 0, 0)))
+        if self.can_assim == 1:
+            image.append(self.canvas.create_line(self.x * 20 + 19, self.y * 20, self.x * 20, self.y * 20 + 19,
+                                             fill=rgb(0, 0, 0)))
+        return image
 
     def genome(self, child):
-        child.speed = self.speed + np.random.uniform(-0.05, 0.05)
-        child.red_color = max(0, min(255, self.red_color + np.random.randint(-20, 20)))
-        child.green_color = max(0, min(255, self.green_color + np.random.randint(-20, 20)))
-        child.blue_color = max(0, min(255, self.blue_color + np.random.randint(-20, 20)))
-        child.dec_move = max(0, self.dec_move + np.random.uniform(-0.03, 0.03))
-        child.dec_mult = max(0, self.dec_move + np.random.uniform(-0.03, 0.03))
-        child.dec_noth = max(0, self.dec_move + np.random.uniform(-0.03, 0.03))
-        child.canvas.delete(child.image)
+        major_mutate = np.random.choice([0, 1, 2], p=[0.985, 0.014, 0.001])
+        if major_mutate == 0:
+            child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
+            child.red_color = max(0, min(255, self.red_color +
+                                         np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])))
+            child.green_color = max(0, min(255, self.green_color +
+                                           np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])))
+            child.blue_color = max(0, min(255, self.blue_color +
+                                          np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])))
+            child.dec_move = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+            child.dec_mult = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+            child.dec_noth = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+            child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
+            child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
+            child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
+        if major_mutate == 1:
+            child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30])
+            child.red_color = max(0, min(255, self.red_color +
+                                         np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])))
+            child.green_color = max(0, min(255, self.green_color +
+                                           np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])))
+            child.blue_color = max(0, min(255, self.blue_color +
+                                          np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])))
+            child.dec_move = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]))
+            child.dec_mult = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]))
+            child.dec_noth = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]))
+            child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.995, 0.005])
+            child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.995, 0.005])
+            child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25])
+        if major_mutate == 2:
+            child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
+            swap = np.random.choice([0, 1, 2])
+            if swap == 0:
+                child.red_color, child.green_color = self.green_color, self.red_color
+            if swap == 1:
+                child.red_color, child.blue_color = self.blue_color, self.red_color
+            if swap == 2:
+                child.blue_color, child.green_color = self.green_color, self.blue_color
+            child.dec_move = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+            child.dec_mult = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+            child.dec_noth = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+            child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
+            child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
+            child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
+        for i in child.image:
+            child.canvas.delete(i)
         child.image = child.draw()
 
     def dec_normalize(self):
@@ -223,13 +297,16 @@ class Alive:
     def next(self):
         self.dec_normalize()
         self.age += 1
-        self.energy += (((255 - self.red_color) + (255 - self.blue_color) + self.green_color) / 510) * photo_eff
-        self.energy -= 0.1 + (0.7 * (0.05 + self.speed)) + (0.01 * self.age)
-        if self.age > 80 + (40 / self.speed):
+        if self.can_photo == 1:
+            self.energy += (((255 - self.red_color) + (255 - self.blue_color) + self.green_color) / 510) * photo_eff
+        self.energy -= 0.1 + (0.4 * self.speed) + (0.02 * self.age) + (0.3 * self.can_photo) + (0.3 * self.can_assim) \
+                       - (0.1 * self.membrane)
+        if self.age > 80 + (40 / self.speed) + (50 * self.membrane):
             self.death()
             return
-        if self.table.food_data[self.x][self.y] > 0:
-            self.eat()
+        if self.can_assim == 1:
+            if self.table.food_data[self.x][self.y] > 0:
+                self.eat()
         if self.energy <= 0:
             self.energy += (self.movement * 0.25) + (self.mult * 0.5)
             self.movement = 0
@@ -239,33 +316,34 @@ class Alive:
                 return
         if self.energy > self.invest:
             self.energy -= self.invest * (1 - self.dec_noth)
-            if self.movement < 30:
+            if self.movement < 3 * (5.0 * (1 / (0.2 + self.speed)) + (2.0 + self.membrane)):
                 self.movement += self.invest * self.dec_move
             else:
                 self.energy += self.invest * self.dec_mult
-            if self.mult < 75:
+            if self.mult < 1.5 * (45 + 5 * (0.5 + self.membrane)):
                 self.mult += self.invest * self.dec_mult
             else:
                 self.energy += self.invest * self.dec_mult
-        if self.movement >= 5 * (1 / (0.2 + self.speed)):
+        if self.movement >= 5.0 * (1 / (0.2 + self.speed)) + (2.0 + self.membrane):
             if self.move(move_dict[np.random.randint(0, 4)]):
-                self.movement -= 5 * (1 / (0.2 + self.speed))
-        if self.mult >= 50:
+                self.movement -= 5.0 * (1 / (0.2 + self.speed)) + (2.0 + self.membrane)
+        if self.mult >= 45 + 5 * (0.5 + self.membrane):
             if self.multiply():
-                self.mult -= 50
+                self.mult -= 45 + 5 * (0.5 + self.membrane)
 
     def death(self):
         self.table.data[self.x][self.y] = 0
-        self.canvas.delete(self.image)
+        for i in self.image:
+            self.canvas.delete(i)
         self.table.life.remove(self)
         self.table.food_data[self.x][self.y] += 15 + self.energy
 
     def eat(self):
         if self.table.food_data[self.x][self.y] >= 7.5:
             self.table.food_data[self.x][self.y] -= 7.5
-            self.energy += 7.5 * 0.98
+            self.energy += 7.5 * 0.85
         else:
-            self.energy += self.table.food_data[self.x][self.y] * 0.98
+            self.energy += self.table.food_data[self.x][self.y] * 0.85
             self.table.food_data[self.x][self.y] = 0
 
     def multiply(self):
@@ -333,7 +411,8 @@ class Alive:
                 self.table.data[self.x][self.y] = 1
             else:
                 return False
-        self.canvas.delete(self.image)
+        for i in self.image:
+            self.canvas.delete(i)
         self.image = self.draw()
         return True
 
