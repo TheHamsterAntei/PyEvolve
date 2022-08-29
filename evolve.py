@@ -1,4 +1,4 @@
-#Version 1.0
+#Version 1.0.1
 import tkinter
 import time
 import numpy as np
@@ -225,6 +225,7 @@ class Alive:
         self.energy -= 0.1 + (0.7 * (0.05 + self.speed)) + (0.01 * self.age)
         if self.age > 80 + (40 / self.speed):
             self.death()
+            return
         if self.table.food_data[self.x][self.y] > 0:
             self.eat()
         if self.energy <= 0:
@@ -250,7 +251,6 @@ class Alive:
         self.canvas.delete(self.image)
         self.table.life.remove(self)
         self.table.food_data[self.x][self.y] += 15 + self.energy
-        del self
 
     def eat(self):
         if self.table.food_data[self.x][self.y] >= 7.5:
