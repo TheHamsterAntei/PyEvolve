@@ -1,4 +1,4 @@
-#Version 1.0.1
+#Version 1.0.2
 import tkinter
 import time
 import numpy as np
@@ -43,13 +43,13 @@ class Table:
 
     def next(self):
         self.step += 1
-        if self.step % 3000 >= 0 and self.step % 400 < 1200:
+        if self.step % 3000 >= 0 and self.step % 4000 < 1200:
             photo_eff = 1.2
-        if self.step % 3000 >= 1200 and self.step % 400 < 1600:
+        if self.step % 3000 >= 1200 and self.step % 4000 < 1600:
             photo_eff = 0.3
-        if self.step % 3000 >= 1600 and self.step % 400 < 2600:
+        if self.step % 3000 >= 1600 and self.step % 4000 < 2600:
             photo_eff = 0.0
-        if self.step % 3000 >= 2600 and self.step % 400 < 3000:
+        if self.step % 3000 >= 2600 and self.step % 4000 < 3000:
             photo_eff = 0.3
         for i in self.life:
             i.next()
