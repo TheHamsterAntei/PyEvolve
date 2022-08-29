@@ -1,4 +1,4 @@
-#Version 1.1.0
+#Version 1.1.1
 import tkinter
 import time
 import learning
@@ -356,8 +356,9 @@ class Alive:
             if self.move(move_dict[np.random.randint(0, 4)]):
                 self.movement -= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)
         if self.mult >= 45 + 5 * (0.5 + self.membrane):
-            if self.multiply():
-                self.mult -= 45 + 5 * (0.5 + self.membrane)
+            if self.neuro != None:
+                if self.multiply():
+                    self.mult -= 45 + 5 * (0.5 + self.membrane)
 
     def look_around(self):
         output = [self.table.food_data[self.x][self.y]]
