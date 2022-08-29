@@ -259,7 +259,9 @@ class Alive:
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
-            child.neuro = self.neuro.copy().mutate_weights(0.001)
+            new_neuro = self.neuro.copy()
+            new_neuro.mutate_weights(0.001)
+            child.neuro = new_neuro
         if major_mutate == 1:
             child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30])
             child.red_color = max(0, min(255, self.red_color +
@@ -274,7 +276,9 @@ class Alive:
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.995, 0.005])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.995, 0.005])
             child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25])
-            child.neuro = self.neuro.copy().mutate_weights(0.005)
+            new_neuro = self.neuro.copy()
+            new_neuro.mutate_weights(0.005)
+            child.neuro = new_neuro
         if major_mutate == 2:
             child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
             swap = np.random.choice([0, 1, 2])
@@ -290,7 +294,9 @@ class Alive:
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
-            child.neuro = self.neuro.copy().mutate_weights(0.001)
+            new_neuro = self.neuro.copy()
+            new_neuro.mutate_weights(0.001)
+            child.neuro = new_neuro
         #Основные характеристики
         child.speed = max(0, min(5.0, child.speed))
         child.membrane = max(0.1, min(10.0, child.membrane))
