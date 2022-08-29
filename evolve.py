@@ -1,4 +1,4 @@
-#Version 1.0.4
+#Version 1.0.5
 import tkinter
 import time
 import numpy as np
@@ -209,9 +209,9 @@ class Alive:
         self.speed = 1.0
         self.membrane = 0.5
         #Цвет
-        self.red_color = 255
-        self.green_color = 0
-        self.blue_color = 255
+        self.red_color = 200
+        self.green_color = 30
+        self.blue_color = 200
         #Интеллект
         self.dec_move = 3.0
         self.dec_mult = 1.0
@@ -316,7 +316,7 @@ class Alive:
                 return
         if self.energy > self.invest:
             self.energy -= self.invest * (1 - self.dec_noth)
-            if self.movement < 3 * (5.0 * (1 / (0.2 + self.speed)) + (2.0 + self.membrane)):
+            if self.movement < 3 * (5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)):
                 self.movement += self.invest * self.dec_move
             else:
                 self.energy += self.invest * self.dec_mult
@@ -324,9 +324,9 @@ class Alive:
                 self.mult += self.invest * self.dec_mult
             else:
                 self.energy += self.invest * self.dec_mult
-        if self.movement >= 5.0 * (1 / (0.2 + self.speed)) + (2.0 + self.membrane):
+        if self.movement >= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane):
             if self.move(move_dict[np.random.randint(0, 4)]):
-                self.movement -= 5.0 * (1 / (0.2 + self.speed)) + (2.0 + self.membrane)
+                self.movement -= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)
         if self.mult >= 45 + 5 * (0.5 + self.membrane):
             if self.multiply():
                 self.mult -= 45 + 5 * (0.5 + self.membrane)
