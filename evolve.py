@@ -1,6 +1,7 @@
-#Version 1.0.6
+#Version 1.1.0
 import tkinter
 import time
+import learning
 import numpy as np
 
 root = tkinter.Tk()
@@ -204,6 +205,10 @@ class Alive:
         self.movement = 0.0
         self.mult = 0.0
         self.age = 0
+        #Инвестиции
+        self.dec_move = 3.0
+        self.dec_mult = 1.0
+        self.dec_noth = 0.0
 
         #Генетические характеристики
         self.speed = 1.0
@@ -213,9 +218,10 @@ class Alive:
         self.green_color = 0
         self.blue_color = 255
         #Интеллект
-        self.dec_move = 3.0
-        self.dec_mult = 1.0
-        self.dec_noth = 0.0
+        if energy != 45:
+            self.neuro = learning.NeuralNet(learning.generate_layers([6, 8, 3]))
+        else:
+            self.neuro = None
 
         #Генетические свойства
         self.can_photo = 0 #Может ли питаться от энергии солнца
@@ -253,6 +259,7 @@ class Alive:
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
+            child.neuro = self.neuro.copy().mutate_weights(0.001)
         if major_mutate == 1:
             child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30])
             child.red_color = max(0, min(255, self.red_color +
@@ -267,6 +274,7 @@ class Alive:
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.995, 0.005])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.995, 0.005])
             child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25])
+            child.neuro = self.neuro.copy().mutate_weights(0.005)
         if major_mutate == 2:
             child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
             swap = np.random.choice([0, 1, 2])
@@ -282,6 +290,18 @@ class Alive:
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
+            child.neuro = self.neuro.copy().mutate_weights(0.001)
+        #Основные характеристики
+        child.speed = max(0, min(5.0, child.speed))
+        child.membrane = max(0.1, min(10.0, child.membrane))
+        # Цвет
+        child.red_color = max(0, min(255, child.red_color))
+        child.green_color = max(0, min(255, child.green_color))
+        child.blue_color = max(0, min(255, child.blue_color))
+        # Интеллект
+        child.dec_move = max(0, child.dec_move)
+        child.dec_mult = max(0, child.dec_mult)
+        child.dec_noth = max(0, child.dec_noth)
         for i in child.image:
             child.canvas.delete(i)
         child.image = child.draw()
@@ -315,6 +335,14 @@ class Alive:
                 self.death()
                 return
         if self.energy > self.invest:
+            if self.neuro != None:
+                result = self.look_around()
+                result.append(self.energy)
+                decisions = self.neuro.get_output(result)
+                self.dec_move = decisions[0]
+                self.dec_mult = decisions[1]
+                self.dec_noth = decisions[2]
+                self.dec_normalize()
             self.energy -= self.invest * (1 - self.dec_noth)
             if self.movement < 3 * (5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)):
                 self.movement += self.invest * self.dec_move
@@ -330,6 +358,26 @@ class Alive:
         if self.mult >= 45 + 5 * (0.5 + self.membrane):
             if self.multiply():
                 self.mult -= 45 + 5 * (0.5 + self.membrane)
+
+    def look_around(self):
+        output = [self.table.food_data[self.x][self.y]]
+        if self.table.isfree(self.x, self.y - 1):
+            output.append(1)
+        else:
+            output.append(0)
+        if self.table.isfree(self.x + 1, self.y):
+            output.append(1)
+        else:
+            output.append(0)
+        if self.table.isfree(self.x, self.y + 1):
+            output.append(1)
+        else:
+            output.append(0)
+        if self.table.isfree(self.x - 1, self.y):
+            output.append(1)
+        else:
+            output.append(0)
+        return output
 
     def death(self):
         self.table.data[self.x][self.y] = 0
