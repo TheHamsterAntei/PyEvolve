@@ -1,4 +1,4 @@
-#Version 1.1.3
+#Version 1.1.4
 import tkinter
 import time
 import learning
@@ -9,7 +9,7 @@ root.title("Evolve")
 root.geometry("1200x800")
 move_dict = ['up', 'right', 'down', 'left']
 photo_eff = 1.2
-mutation_mult = 20.0
+mutation_mult = 25.0
 table_mode = tkinter.IntVar()
 table_mode.set(1)
 
@@ -22,6 +22,7 @@ class Table:
         self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100, 0)]
         self.food_data = [[np.random.uniform(10, 100) for j in range(0, height)] for i in range(0, width)]
         self.food_data_images = [[None for j in range(0, height)] for i in range(0, width)]
+        self.food_mult = 1.0
         self.step = 0
         if table_mode.get() == 1:
             self.draw_food()
@@ -59,6 +60,8 @@ class Table:
         photo_eff = 1.2 * np.sin((self.step % (900 * np.pi)) / 900)
         if mutation_mult > 0.65:
             mutation_mult *= 0.99
+        if self.food_mult > 0.25:
+            self.food_mult *= 0.995
         for i in self.life:
             i.next()
         self.food_refresh()
@@ -79,7 +82,7 @@ class Table:
     def food_refresh(self):
         for i in range(0, self.width):
             for j in range(0, self.height):
-                mult = max(0, 2 - self.food_data[i][j] / 90)
+                mult = max(0, 2.0 - self.food_data[i][j] / 90) * self.food_mult
                 self.food_data[i][j] += np.random.choice(
                     [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
                     p=[0.1, 0.15, 0.72, 0.03]) * mult
@@ -277,10 +280,10 @@ class Alive:
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]) * mutation_mult
             new_neuro = self.neuro_invest.copy()
-            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            new_neuro.mutate_weights(0.01 * mutation_mult)
             child.neuro_invest = new_neuro
             new_neuro = self.neuro_move.copy()
-            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            new_neuro.mutate_weights(0.01 * mutation_mult)
             child.neuro_move = new_neuro
         if major_mutate == 1:
             child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30]) * mutation_mult
@@ -297,10 +300,10 @@ class Alive:
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.995, 0.005])
             child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25]) * mutation_mult
             new_neuro = self.neuro_invest.copy()
-            new_neuro.mutate_weights(0.001 * mutation_mult)
+            new_neuro.mutate_weights(0.05 * mutation_mult)
             child.neuro_invest = new_neuro
             new_neuro = self.neuro_move.copy()
-            new_neuro.mutate_weights(0.001 * mutation_mult)
+            new_neuro.mutate_weights(0.05 * mutation_mult)
             child.neuro_move = new_neuro
         if major_mutate == 2:
             child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05]) * mutation_mult
@@ -315,10 +318,10 @@ class Alive:
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
             child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]) * mutation_mult
             new_neuro = self.neuro_invest.copy()
-            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            new_neuro.mutate_weights(0.01 * mutation_mult)
             child.neuro_invest = new_neuro
             new_neuro = self.neuro_move.copy()
-            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            new_neuro.mutate_weights(0.01 * mutation_mult)
             child.neuro_move = new_neuro
         #Основные характеристики
         child.speed = max(0.0, min(5.0, child.speed))
@@ -573,6 +576,7 @@ def main():
         else:
             if countdown == 0:
                 table.create_life()
+                table.food_mult = 1.0
                 mutation_mult = 20.0
                 countdown = 300
             else:
