@@ -1,4 +1,4 @@
-#Version 1.1.2
+#Version 1.1.3
 import tkinter
 import time
 import learning
@@ -9,6 +9,7 @@ root.title("Evolve")
 root.geometry("1200x800")
 move_dict = ['up', 'right', 'down', 'left']
 photo_eff = 1.2
+mutation_mult = 20.0
 table_mode = tkinter.IntVar()
 table_mode.set(1)
 
@@ -18,17 +19,13 @@ class Table:
         self.width = width
         self.height = height
         self.data = [[0 for j in range(0, height)] for i in range(0, width)]
-        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100)]
+        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100, 0)]
         self.food_data = [[np.random.uniform(10, 100) for j in range(0, height)] for i in range(0, width)]
         self.food_data_images = [[None for j in range(0, height)] for i in range(0, width)]
         self.step = 0
         if table_mode.get() == 1:
             self.draw_food()
-        for i in range(0, width):
-            for j in range(0, height):
-                if self.isfree(i, j):
-                    if np.random.choice([0, 1], p=[0.98, 0.02]):
-                        self.life.append(Alive(i, j, canvas, self, 100))
+        self.create_life()
 
         #Статистика
         self.stat_red = None
@@ -48,10 +45,20 @@ class Table:
         if mode == 1:
             self.draw_food()
 
+    def create_life(self):
+        for i in range(0, self.width):
+            for j in range(0, self.height):
+                if self.isfree(i, j):
+                    if np.random.choice([0, 1], p=[0.98, 0.02]):
+                        self.life.append(Alive(i, j, self.canvas, self, 100, 0))
+
     def next(self):
         self.step += 1
         global photo_eff
+        global mutation_mult
         photo_eff = 1.2 * np.sin((self.step % (900 * np.pi)) / 900)
+        if mutation_mult > 0.65:
+            mutation_mult *= 0.99
         for i in self.life:
             i.next()
         self.food_refresh()
@@ -72,9 +79,10 @@ class Table:
     def food_refresh(self):
         for i in range(0, self.width):
             for j in range(0, self.height):
+                mult = max(0, 2 - self.food_data[i][j] / 90)
                 self.food_data[i][j] += np.random.choice(
                     [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
-                    p=[0.1, 0.15, 0.72, 0.03])
+                    p=[0.1, 0.15, 0.72, 0.03]) * mult
                 if self.food_data[i][j] > 215:
                     t = [0, 0, 0, 0]
                     if j > 0:
@@ -97,6 +105,9 @@ class Table:
                             self.food_data[i][j + 1] += r
                         if t[3] == 1:
                             self.food_data[i - 1][j] += r
+                    else:
+                        if self.food_data[i][j] > 255:
+                            self.food_data[i][j] = 255
 
 
     def draw_food(self):
@@ -197,7 +208,7 @@ class Table:
 
 
 class Alive:
-    def __init__(self, x, y, canvas, table, energy):
+    def __init__(self, x, y, canvas, table, energy, parent):
         #Технические детали
         self.canvas = canvas
         self.x = x
@@ -223,8 +234,9 @@ class Alive:
         self.green_color = 0
         self.blue_color = 255
         #Интеллект
-        if energy != 45:
-            self.neuro = learning.NeuralNet(learning.generate_layers([6, 16, 7]))
+        if parent == 0:
+            self.neuro_invest = learning.NeuralNet(learning.generate_layers([4, 3]))
+            self.neuro_move = learning.NeuralNet(learning.generate_layers([5, 4]))
         else:
             self.neuro = None
 
@@ -251,41 +263,47 @@ class Alive:
     def genome(self, child):
         major_mutate = np.random.choice([0, 1, 2], p=[0.985, 0.014, 0.001])
         if major_mutate == 0:
-            child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
+            child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05]) * mutation_mult
             child.red_color = max(0, min(255, self.red_color +
-                                         np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])))
+                                         np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])
+                                         * mutation_mult))
             child.green_color = max(0, min(255, self.green_color +
-                                           np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])))
+                                           np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])
+                                           * mutation_mult))
             child.blue_color = max(0, min(255, self.blue_color +
-                                          np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])))
-            child.dec_move = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
-            child.dec_mult = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
-            child.dec_noth = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
+                                          np.random.choice([-2, -1, 0, 1, 2], p=[0.03, 0.05, 0.84, 0.05, 0.03])
+                                          * mutation_mult))
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
-            child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
-            new_neuro = self.neuro.copy()
-            new_neuro.mutate_weights(0.0002)
-            child.neuro = new_neuro
+            child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]) * mutation_mult
+            new_neuro = self.neuro_invest.copy()
+            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            child.neuro_invest = new_neuro
+            new_neuro = self.neuro_move.copy()
+            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            child.neuro_move = new_neuro
         if major_mutate == 1:
-            child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30])
+            child.speed = self.speed + np.random.choice([-0.05, 0, 0.05], p=[0.30, 0.40, 0.30]) * mutation_mult
             child.red_color = max(0, min(255, self.red_color +
-                                         np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])))
+                                         np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])
+                                         * mutation_mult))
             child.green_color = max(0, min(255, self.green_color +
-                                           np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])))
+                                           np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])
+                                           * mutation_mult))
             child.blue_color = max(0, min(255, self.blue_color +
-                                          np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])))
-            child.dec_move = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]))
-            child.dec_mult = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]))
-            child.dec_noth = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]))
+                                          np.random.choice([-5, -3, 0, 3, 5], p=[0.15, 0.25, 0.20, 0.25, 0.15])
+                                          * mutation_mult))
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.995, 0.005])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.995, 0.005])
-            child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25])
-            new_neuro = self.neuro.copy()
-            new_neuro.mutate_weights(0.001)
-            child.neuro = new_neuro
+            child.membrane = self.membrane + np.random.choice([-0.02, 0, 0.02], p=[0.25, 0.50, 0.25]) * mutation_mult
+            new_neuro = self.neuro_invest.copy()
+            new_neuro.mutate_weights(0.001 * mutation_mult)
+            child.neuro_invest = new_neuro
+            new_neuro = self.neuro_move.copy()
+            new_neuro.mutate_weights(0.001 * mutation_mult)
+            child.neuro_move = new_neuro
         if major_mutate == 2:
-            child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05])
+            child.speed = self.speed + np.random.choice([-0.01, 0, 0.01], p=[0.05, 0.90, 0.05]) * mutation_mult
             swap = np.random.choice([0, 1, 2])
             if swap == 0:
                 child.red_color, child.green_color = self.green_color, self.red_color
@@ -293,17 +311,17 @@ class Alive:
                 child.red_color, child.blue_color = self.blue_color, self.red_color
             if swap == 2:
                 child.blue_color, child.green_color = self.green_color, self.blue_color
-            child.dec_move = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
-            child.dec_mult = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
-            child.dec_noth = max(0, self.dec_move + np.random.choice([-0.01, 0, 0.01], p=[0.03, 0.94, 0.03]))
             child.can_photo = np.random.choice([self.can_photo, (self.can_photo + 1) % 2], p=[0.998, 0.002])
             child.can_assim = np.random.choice([self.can_assim, (self.can_assim + 1) % 2], p=[0.998, 0.002])
-            child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10])
-            new_neuro = self.neuro.copy()
-            new_neuro.mutate_weights(0.0002)
-            child.neuro = new_neuro
+            child.membrane = self.membrane + np.random.choice([-0.01, 0, 0.01], p=[0.10, 0.80, 0.10]) * mutation_mult
+            new_neuro = self.neuro_invest.copy()
+            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            child.neuro_invest = new_neuro
+            new_neuro = self.neuro_move.copy()
+            new_neuro.mutate_weights(0.0002 * mutation_mult)
+            child.neuro_move = new_neuro
         #Основные характеристики
-        child.speed = max(0, min(5.0, child.speed))
+        child.speed = max(0.0, min(5.0, child.speed))
         child.membrane = max(0.1, min(10.0, child.membrane))
         # Цвет
         child.red_color = max(0, min(255, child.red_color))
@@ -332,7 +350,7 @@ class Alive:
             self.energy += (((255 - self.red_color) + (255 - self.blue_color) + self.green_color) / 510) * photo_eff
         self.energy -= 0.1 + (0.4 * self.speed) + (0.02 * self.age) + (0.3 * self.can_photo) + (0.3 * self.can_assim) \
                        - (0.1 * self.membrane)
-        if self.age > 80 + (40 / self.speed) + (50 * self.membrane):
+        if self.age > 80 + (40 / (0.5 + self.speed)) + (50 * self.membrane):
             self.death()
             return
         if self.can_assim == 1:
@@ -347,18 +365,12 @@ class Alive:
                 return
         result = self.look_around()
         result.append(self.energy)
-        decisions = self.neuro.get_output(result)
+        result.append(photo_eff / 1.2)
+        decisions = self.neuro_invest.get_output(result)
         self.dec_move = decisions[0]
         self.dec_mult = decisions[1]
         self.dec_noth = decisions[2]
-        move_dir_values = decisions[3:]
-        move_dir_max = max(move_dir_values[0], move_dir_values[1], move_dir_values[2], move_dir_values[3])
-        move_dir = -1
-        for i in range(0, 4):
-            if move_dir_values[i] == move_dir_max:
-                move_dir = i
-        if move_dir == -1:
-            move_dir = np.random.randint(0, 4)
+        move_dir = self.move_choice(self.neuro_move.get_output(self.look_for_food()))
         self.dec_normalize()
         if self.energy > self.invest:
             self.energy -= self.invest * (1 - self.dec_noth)
@@ -377,22 +389,64 @@ class Alive:
             if self.multiply():
                 self.mult -= 45 + 5 * (0.5 + self.membrane)
 
+    def move_choice(self, values):
+        values = sorted(enumerate(values), key=lambda n: -n[1])
+        for i in range(0, 4):
+            direction = values[i][0]
+            if direction == 0:
+                if self.table.isfree(self.x, self.y - 1):
+                    return direction
+                else:
+                    continue
+            if direction == 1:
+                if self.table.isfree(self.x + 1, self.y):
+                    return direction
+                else:
+                    continue
+            if direction == 2:
+                if self.table.isfree(self.x, self.y + 1):
+                    return direction
+                else:
+                    continue
+            if direction == 3:
+                if self.table.isfree(self.x - 1, self.y):
+                    return direction
+                else:
+                    continue
+        return np.random.randint(0, 4)
+
+
     def look_around(self):
-        output = [self.table.food_data[self.x][self.y]]
+        output = [self.table.food_data[self.x][self.y] / 255]
+        space = 0
         if self.table.isfree(self.x, self.y - 1):
-            output.append(1)
+            space += 0.25
+        if self.table.isfree(self.x + 1, self.y):
+            space += 0.25
+        if self.table.isfree(self.x, self.y + 1):
+            space += 0.25
+        if self.table.isfree(self.x - 1, self.y):
+            space += 0.25
+        output.append(space)
+        return output
+
+    def look_for_food(self):
+        output = [self.table.food_data[self.x][self.y] / 255]
+        space = 0
+        if self.table.isfree(self.x, self.y - 1):
+            output.append(self.table.food_data[self.x][self.y - 1] / 255)
         else:
             output.append(0)
         if self.table.isfree(self.x + 1, self.y):
-            output.append(1)
+            output.append(self.table.food_data[self.x + 1][self.y] / 255)
         else:
             output.append(0)
         if self.table.isfree(self.x, self.y + 1):
-            output.append(1)
+            output.append(self.table.food_data[self.x][self.y + 1] / 255)
         else:
             output.append(0)
         if self.table.isfree(self.x - 1, self.y):
-            output.append(1)
+            output.append(self.table.food_data[self.x - 1][self.y] / 255)
         else:
             output.append(0)
         return output
@@ -428,22 +482,22 @@ class Alive:
         p = [t[i] * (1 / n) for i in range(0, 4)]
         direction = np.random.choice(move_dict, p=p)
         if direction == 'up':
-            child = Alive(self.x, self.y - 1, self.canvas, self.table, 45)
+            child = Alive(self.x, self.y - 1, self.canvas, self.table, 45, 1)
             self.table.life.append(child)
             self.genome(child)
             return True
         if direction == 'right':
-            child = Alive(self.x + 1, self.y, self.canvas, self.table, 45)
+            child = Alive(self.x + 1, self.y, self.canvas, self.table, 45, 1)
             self.table.life.append(child)
             self.genome(child)
             return True
         if direction == 'down':
-            child = Alive(self.x, self.y + 1, self.canvas, self.table, 45)
+            child = Alive(self.x, self.y + 1, self.canvas, self.table, 45, 1)
             self.table.life.append(child)
             self.genome(child)
             return True
         if direction == 'left':
-            child = Alive(self.x - 1, self.y, self.canvas, self.table, 45)
+            child = Alive(self.x - 1, self.y, self.canvas, self.table, 45, 1)
             self.table.life.append(child)
             self.genome(child)
             return True
@@ -497,7 +551,8 @@ def rgb(red, green, blue):
 
 
 def main():
-    countdown = 200
+    global mutation_mult
+    countdown = 300
     canvas = tkinter.Canvas(root, width=1200, height=800, bg='white')
     #canvas.pack(fill=tkinter.BOTH, expand=0)
     canvas.place(x=0, y=0, width=1200, height=800)
@@ -517,10 +572,11 @@ def main():
             table.next()
         else:
             if countdown == 0:
-                table.life.append(Alive(np.random.randint(0, table.width), np.random.randint(0, table.height), canvas,
-                                        table, 100))
-                countdown = 200
+                table.create_life()
+                mutation_mult = 20.0
+                countdown = 300
             else:
+                table.next()
                 countdown -= 1
         root.update()
     root.mainloop()
