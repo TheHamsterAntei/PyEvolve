@@ -249,16 +249,12 @@ class Table:
                 mult = 0.0
                 if i < int(self.width / 2) - 1 and j < int(self.height / 2) - 1:
                     mult = max(0.0, 3.0 - self.food_data[i][j] / 70) * self.food_mult
-                    continue
                 if i < int(self.width / 2) - 1 and j > int(self.height / 2) + 1:
                     mult = max(0.0, 1.5 - self.food_data[i][j] / 100) * self.food_mult
-                    continue
                 if i > int(self.width / 2) + 1 and j < int(self.height / 2) - 1:
                     mult = max(0.0, 1.5 - self.food_data[i][j] / 100) * self.food_mult
-                    continue
                 if i > int(self.width / 2) + 1 and j > int(self.height / 2) + 1:
                     mult = max(0.0, 0.25 - self.food_data[i][j] / 120) * self.food_mult
-                    continue
                 self.food_data[i][j] += np.random.choice(
                     [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
                     p=[0.1, 0.15, 0.72, 0.03]) * mult
@@ -312,7 +308,7 @@ class Table:
         if mutation_mult > 0.65:
             mutation_mult *= 0.99
         if self.food_mult > 0.25:
-            self.food_mult *= 0.995
+            self.food_mult *= 0.998
         for i in self.life:
             i.next()
         self.food_refresh()
@@ -821,8 +817,8 @@ def main():
                 mutation_mult = 22.5
                 countdown = 300
             else:
+                table.food_mult = 5.0
                 table.next()
-                table.food_mult = 10.0
                 countdown -= 1
         root.update()
         fps = 1.0 / (time.time() - start_time + 0.00001)
