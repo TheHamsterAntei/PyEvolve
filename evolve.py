@@ -137,7 +137,7 @@ class Table:
         world_blue = 0
         world_energy = 0
         world_food = 0
-        if self.step % 50 == 0:
+        if self.step % 10 == 0:
             self.stat_count_value.pop()
             self.stat_count_value.insert(0, len(self.life))
             value_max = 0
@@ -204,7 +204,7 @@ class Table:
         world_blue = 0
         world_energy = 0
         world_food = 0
-        if self.step % 50 == 0:
+        if self.step % 10 == 0:
             self.stat_count_value.pop()
             self.stat_count_value.insert(0, len(self.life))
             value_max = 0
@@ -212,8 +212,6 @@ class Table:
                 if self.stat_count_value[i] > value_max:
                     value_max = self.stat_count_value[i]
             for i in range(0, len(self.stat_count)):
-                if self.stat_count[i] != None:
-                    self.canvas.delete(self.stat_count[i])
                 value = (self.stat_count_value[i] / value_max) * 99
                 self.canvas.itemconfig(self.stat_count[i],
                                        outline=rgb(510 - (value * 5.1), value * 5.1, 0),
