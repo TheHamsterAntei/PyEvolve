@@ -1,4 +1,4 @@
-#Version 1.2.0
+#Version 1.2.2
 import tkinter
 import time
 import learning
@@ -28,7 +28,7 @@ class Table:
         self.width = width
         self.height = height
         self.data = [[0 for j in range(0, height)] for i in range(0, width)]
-        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100, 0)]
+        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 200, 0)]
         self.food_data = [[0 for j in range(0, height)] for i in range(0, width)]
         for i in range(0, width):
             for j in range(0, height):
@@ -67,6 +67,7 @@ class Table:
         canvas.master.bind('<MouseWheel>', self.zoom_change)
         canvas.master.bind('<Button-4>', self.zoom_change)
         canvas.master.bind('<Button-5>', self.zoom_change)
+        canvas.master.bind('<Key>', self.key_pressed)
 
     def change_mode(self):
         mode = table_mode.get()
@@ -83,8 +84,8 @@ class Table:
         for i in range(0, self.width):
             for j in range(0, self.height):
                 if self.isfree(i, j):
-                    if np.random.choice([0, 1], p=[0.98, 0.02]):
-                        self.life.append(Alive(i, j, self.canvas, self, 100, 0))
+                    if np.random.choice([0, 1], p=[0.97, 0.03]):
+                        self.life.append(Alive(i, j, self.canvas, self, 200, 0))
 
     def draw_food(self):
         for i in range(0, self.width):
@@ -95,7 +96,7 @@ class Table:
                 y2 = (j + 1) * cell_size - 1 - offset_y
                 color = self.food_data[i][j]
                 color = max(0, min(255, color))
-                if x1 > screen_w or y1 > screen_h or x2 < 0 or y2 < 0:
+                if x1 >= screen_w or y1 >= screen_h or x2 < 0 or y2 < 0:
                     self.canvas.itemconfig(self.food_data_images[i][j], state="hidden")
                     continue
                 self.canvas.itemconfig(self.food_data_images[i][j], state="normal")
@@ -103,8 +104,8 @@ class Table:
                     self.food_data_images[i][j] = self.canvas.create_rectangle(
                         max(0, x1),
                         max(0, y1),
-                        min(screen_w - 1, x2),
-                        min(screen_h - 1, y2),
+                        min(screen_w - 2, x2),
+                        min(screen_h - 2, y2),
                         outline=rgb(255 - int(color), 255 - int(color), 255 - int(color)),
                         fill=rgb(255 - int(color), 255 - int(color), 255 - int(color))
                     )
@@ -286,6 +287,22 @@ class Table:
                     else:
                         if self.food_data[i][j] > 255:
                             self.food_data[i][j] = 255
+
+    def key_pressed(self, event):
+        global offset_x
+        global offset_y
+        if event.keysym == 'Right':
+            offset_x += 14
+        if event.keysym == 'Left':
+            offset_x -= 14
+        if event.keysym == 'Up':
+            offset_y -= 14
+        if event.keysym == 'Down':
+            offset_y += 14
+        if table_mode == 1:
+            self.draw_food()
+        for i in self.life:
+            i.draw_update()
 
     def next(self):
         self.step += 1
@@ -786,7 +803,7 @@ def main():
     canvas.create_line(0, 700, 12000, 700, fill=rgb(0, 0, 0))
     canvas.create_line(151, 700, 151, 800, fill=rgb(0, 0, 0))
     canvas.create_line(1008, 0, 1008, 700, fill=rgb(0, 0, 0))
-    table = Table(canvas, 72, 50)
+    table = Table(canvas, 120, 80)
     #Объявление кнопок
     tm1 = tkinter.Radiobutton(text='Выключить всё', variable=table_mode, value=0, bg='white',
                               command=lambda i=table: table.change_mode()).place(x=1014, y=10)
@@ -805,7 +822,7 @@ def main():
                 countdown = 300
             else:
                 table.next()
-                table.food_mult = 5.0
+                table.food_mult = 10.0
                 countdown -= 1
         root.update()
         fps = 1.0 / (time.time() - start_time + 0.00001)
