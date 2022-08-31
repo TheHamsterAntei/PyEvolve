@@ -1,4 +1,4 @@
-#Version 1.1.4
+#Version 1.2.0
 import tkinter
 import time
 import learning
@@ -8,10 +8,19 @@ root = tkinter.Tk()
 root.title("Evolve")
 root.geometry("1200x800")
 move_dict = ['up', 'right', 'down', 'left']
-photo_eff = 1.2
-mutation_mult = 25.0
+photo_eff = 1.25
+mutation_mult = 22.5
 table_mode = tkinter.IntVar()
 table_mode.set(1)
+cell_size = 14
+fps = 30
+
+zoom = 1.0
+screen_w = 1008
+screen_h = 700
+
+offset_x = 0
+offset_y = 0
 
 class Table:
     def __init__(self, canvas, width, height):
@@ -20,7 +29,21 @@ class Table:
         self.height = height
         self.data = [[0 for j in range(0, height)] for i in range(0, width)]
         self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100, 0)]
-        self.food_data = [[np.random.uniform(10, 100) for j in range(0, height)] for i in range(0, width)]
+        self.food_data = [[0 for j in range(0, height)] for i in range(0, width)]
+        for i in range(0, width):
+            for j in range(0, height):
+                if i < int(width / 2) - 1 and j < int(height / 2) - 1:
+                    self.food_data[i][j] = np.random.uniform(10, 100)
+                    continue
+                if i < int(width / 2) - 1 and j > int(height / 2) + 1:
+                    self.food_data[i][j] = np.random.uniform(5, 50)
+                    continue
+                if i > int(width / 2) + 1 and j < int(height / 2) - 1:
+                    self.food_data[i][j] = np.random.uniform(5, 50)
+                    continue
+                if i > int(width / 2) + 1 and j > int(height / 2) + 1:
+                    self.food_data[i][j] = np.random.uniform(1, 10)
+                    continue
         self.food_data_images = [[None for j in range(0, height)] for i in range(0, width)]
         self.food_mult = 1.0
         self.step = 0
@@ -37,7 +60,13 @@ class Table:
         self.stat_count = [None for i in range(0, 262)]
         self.stat_count_value = [0 for i in range(0, 262)]
         self.stat_photo = None
+        self.stat_fps = None
         self.draw_stats()
+
+        #Управление
+        canvas.master.bind('<MouseWheel>', self.zoom_change)
+        canvas.master.bind('<Button-4>', self.zoom_change)
+        canvas.master.bind('<Button-5>', self.zoom_change)
 
     def change_mode(self):
         mode = table_mode.get()
@@ -45,6 +74,10 @@ class Table:
             self.undraw_food()
         if mode == 1:
             self.draw_food()
+            for i in self.life:
+                for j in i.image:
+                    self.canvas.delete(j)
+                i.image = i.draw()
 
     def create_life(self):
         for i in range(0, self.width):
@@ -53,88 +86,36 @@ class Table:
                     if np.random.choice([0, 1], p=[0.98, 0.02]):
                         self.life.append(Alive(i, j, self.canvas, self, 100, 0))
 
-    def next(self):
-        self.step += 1
-        global photo_eff
-        global mutation_mult
-        photo_eff = 1.2 * np.sin((self.step % (900 * np.pi)) / 900)
-        if mutation_mult > 0.65:
-            mutation_mult *= 0.99
-        if self.food_mult > 0.25:
-            self.food_mult *= 0.995
-        for i in self.life:
-            i.next()
-        self.food_refresh()
-        if table_mode.get() == 1:
-            self.draw_food()
-        self.draw_stats()
-
-    def isfree(self, x, y):
-        if x < 0 or y < 0 or x > self.width - 1 or y > self.height - 1:
-            return False
-        else:
-            if self.data[x][y] == 1:
-                return False
-            else:
-                return True
-
-
-    def food_refresh(self):
-        for i in range(0, self.width):
-            for j in range(0, self.height):
-                mult = max(0, 2.0 - self.food_data[i][j] / 90) * self.food_mult
-                self.food_data[i][j] += np.random.choice(
-                    [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
-                    p=[0.1, 0.15, 0.72, 0.03]) * mult
-                if self.food_data[i][j] > 215:
-                    t = [0, 0, 0, 0]
-                    if j > 0:
-                        t[0] = 1
-                    if i < self.width - 1:
-                        t[1] = 1
-                    if j < self.height - 1:
-                        t[2] = 1
-                    if i > 0:
-                        t[3] = 1
-                    n = t.count(1)
-                    if n > 0:
-                        r = (self.food_data[i][j] - 215) / n
-                        self.food_data[i][j] = 215
-                        if t[0] == 1:
-                            self.food_data[i][j - 1] += r
-                        if t[1] == 1:
-                            self.food_data[i + 1][j] += r
-                        if t[2] == 1:
-                            self.food_data[i][j + 1] += r
-                        if t[3] == 1:
-                            self.food_data[i - 1][j] += r
-                    else:
-                        if self.food_data[i][j] > 255:
-                            self.food_data[i][j] = 255
-
-
     def draw_food(self):
         for i in range(0, self.width):
             for j in range(0, self.height):
+                x1 = i * cell_size - offset_x
+                y1 = j * cell_size - offset_y
+                x2 = (i + 1) * cell_size - 1 - offset_x
+                y2 = (j + 1) * cell_size - 1 - offset_y
                 color = self.food_data[i][j]
                 color = max(0, min(255, color))
-                if self.food_data_images[i][j] != None:
-                    self.canvas.delete(self.food_data_images[i][j])
-                if self.data[i][j] == 0 and color != 0:
+                if x1 > screen_w or y1 > screen_h or x2 < 0 or y2 < 0:
+                    self.canvas.itemconfig(self.food_data_images[i][j], state="hidden")
+                    continue
+                self.canvas.itemconfig(self.food_data_images[i][j], state="normal")
+                if self.food_data_images[i][j] == None:
                     self.food_data_images[i][j] = self.canvas.create_rectangle(
-                        i * 20, j * 20, i * 20 + 19, j * 20 + 19,
+                        max(0, x1),
+                        max(0, y1),
+                        min(screen_w - 1, x2),
+                        min(screen_h - 1, y2),
                         outline=rgb(255 - int(color), 255 - int(color), 255 - int(color)),
                         fill=rgb(255 - int(color), 255 - int(color), 255 - int(color))
                     )
                 else:
-                    self.food_data_images[i][j] = None
-
-    def undraw_food(self):
-        for i in range(0, self.width):
-            for j in range(0, self.height):
-                if self.food_data_images[i][j] != None:
-                    self.canvas.delete(self.food_data_images[i][j])
-                    self.food_data_images[i][j] = None
+                    if self.food_data_images[i][j]!=None:
+                        self.canvas.itemconfig(self.food_data_images[i][j],
+                                               outline=rgb(255 - int(color), 255 - int(color), 255 - int(color)),
+                                               fill=rgb(255 - int(color), 255 - int(color), 255 - int(color)))
+                        self.canvas.coords(self.food_data_images[i][j], max (0, x1), max(0, y1),
+                                           min(screen_w - 1, x2),
+                                           min(screen_h - 1, y2))
 
     def draw_stats(self):
         if self.stat_red != None:
@@ -149,6 +130,8 @@ class Table:
             self.canvas.delete(self.stat_food)
         if self.stat_photo != None:
             self.canvas.delete(self.stat_photo)
+        if self.stat_fps != None:
+            self.canvas.delete(self.stat_fps)
         world_red = 0
         world_green = 0
         world_blue = 0
@@ -194,7 +177,7 @@ class Table:
             fill=rgb(0, 0, 255)
         )
         self.stat_energy = self.canvas.create_rectangle(
-            46, 800, 60, 800 - ((min(500, world_energy) * 99) / 500),
+            46, 800, 60, 800 - ((min(200, world_energy) * 99) / 200),
             outline=rgb(30, 180, 210),
             fill=rgb(30, 180, 210)
         )
@@ -204,10 +187,154 @@ class Table:
             fill=rgb(180, 180, 180)
         )
         self.stat_photo = self.canvas.create_rectangle(
-            76, 800, 90, 800 - (photo_eff * 99 / 1.2),
+            76, 800, 90, 800 - (photo_eff * 99 / 1.25),
             outline=rgb(180, 180, 180),
             fill=rgb(160, 140, 30)
         )
+        self.stat_fps = self.canvas.create_text(
+            1014, 685,
+            text="FPS: " + str(int(fps * 1000) / 1000),
+            anchor="w",
+            font='Calibri 14'
+        )
+
+    def draw_stats_update(self):
+        world_red = 0
+        world_green = 0
+        world_blue = 0
+        world_energy = 0
+        world_food = 0
+        if self.step % 50 == 0:
+            self.stat_count_value.pop()
+            self.stat_count_value.insert(0, len(self.life))
+            value_max = 0
+            for i in range(0, len(self.stat_count_value)):
+                if self.stat_count_value[i] > value_max:
+                    value_max = self.stat_count_value[i]
+            for i in range(0, len(self.stat_count)):
+                if self.stat_count[i] != None:
+                    self.canvas.delete(self.stat_count[i])
+                value = (self.stat_count_value[i] / value_max) * 99
+                self.canvas.itemconfig(self.stat_count[i],
+                                       outline=rgb(510 - (value * 5.1), value * 5.1, 0),
+                                       fill=rgb(510 - (value * 5.1), value * 5.1, 0))
+                self.canvas.coords(self.stat_count[i], 152 + (i * 4), 800, 155 + (i * 4), 800 - value)
+        for i in self.life:
+            world_red += i.red_color / len(self.life)
+            world_green += i.green_color / len(self.life)
+            world_blue += i.blue_color / len(self.life)
+            world_energy += i.energy / len(self.life)
+        for i in range(0, len(self.food_data)):
+            for j in range(0, len(self.food_data[i])):
+                world_food += self.food_data[i][j] / (self.width * self.height)
+        self.canvas.coords(self.stat_red, 0, 800, 15, 800 - (world_red * 99 / 255))
+        self.canvas.coords(self.stat_green, 16, 800, 30, 800 - (world_green * 99 / 255))
+        self.canvas.coords(self.stat_blue, 31, 800, 45, 800 - (world_blue * 99 / 255))
+        self.canvas.coords(self.stat_energy, 46, 800, 60, 800 - ((min(200, world_energy) * 99) / 200))
+        self.canvas.coords(self.stat_food, 61, 800, 75, 800 - (world_food * 99 / 255))
+        self.canvas.coords(self.stat_photo, 76, 800, 90, 800 - (photo_eff * 99 / 1.25))
+        self.canvas.itemconfig(self.stat_fps, text="FPS: " + str(int(fps * 1000) / 1000))
+
+    def isfree(self, x, y):
+        if x < 0 or y < 0 or x > self.width - 1 or y > self.height - 1:
+            return False
+        else:
+            if self.data[x][y] == 1:
+                return False
+            else:
+                return True
+
+    def food_refresh(self):
+        for i in range(0, self.width):
+            for j in range(0, self.height):
+                mult = 0.0
+                if i < int(self.width / 2) - 1 and j < int(self.height / 2) - 1:
+                    mult = max(0.0, 3.0 - self.food_data[i][j] / 70) * self.food_mult
+                    continue
+                if i < int(self.width / 2) - 1 and j > int(self.height / 2) + 1:
+                    mult = max(0.0, 1.5 - self.food_data[i][j] / 100) * self.food_mult
+                    continue
+                if i > int(self.width / 2) + 1 and j < int(self.height / 2) - 1:
+                    mult = max(0.0, 1.5 - self.food_data[i][j] / 100) * self.food_mult
+                    continue
+                if i > int(self.width / 2) + 1 and j > int(self.height / 2) + 1:
+                    mult = max(0.0, 0.25 - self.food_data[i][j] / 120) * self.food_mult
+                    continue
+                self.food_data[i][j] += np.random.choice(
+                    [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
+                    p=[0.1, 0.15, 0.72, 0.03]) * mult
+                if self.food_data[i][j] > 215:
+                    t = [0, 0, 0, 0]
+                    if j > 0:
+                        t[0] = 1
+                    if i < self.width - 1:
+                        t[1] = 1
+                    if j < self.height - 1:
+                        t[2] = 1
+                    if i > 0:
+                        t[3] = 1
+                    n = t.count(1)
+                    if n > 0:
+                        r = (self.food_data[i][j] - 215) / n
+                        self.food_data[i][j] = 215
+                        if t[0] == 1:
+                            self.food_data[i][j - 1] += r
+                        if t[1] == 1:
+                            self.food_data[i + 1][j] += r
+                        if t[2] == 1:
+                            self.food_data[i][j + 1] += r
+                        if t[3] == 1:
+                            self.food_data[i - 1][j] += r
+                    else:
+                        if self.food_data[i][j] > 255:
+                            self.food_data[i][j] = 255
+
+    def next(self):
+        self.step += 1
+        global photo_eff
+        global mutation_mult
+        photo_eff = 1.2 * np.sin((self.step % (900 * np.pi)) / 900)
+        if mutation_mult > 0.65:
+            mutation_mult *= 0.99
+        if self.food_mult > 0.25:
+            self.food_mult *= 0.995
+        for i in self.life:
+            i.next()
+        self.food_refresh()
+        if table_mode.get() == 1:
+            self.draw_food()
+        self.draw_stats_update()
+
+    def undraw_food(self):
+        for i in range(0, self.width):
+            for j in range(0, self.height):
+                if self.food_data_images[i][j] != None:
+                    self.canvas.delete(self.food_data_images[i][j])
+                    self.food_data_images[i][j] = None
+
+    def zoom_change(self, event):
+        global zoom
+        global cell_size
+        global offset_x
+        global offset_y
+        prev_zoom = zoom
+        if event.delta < 0 or event.num == 5:
+            if zoom > 1.0:
+                zoom /= 1.35
+            if zoom < 1.0:
+                zoom = 1.0
+        if event.delta > 0 or event.num == 4:
+            if zoom < 10.0:
+                zoom *= 1.35
+            if zoom > 10.0:
+                zoom = 10.0
+        cell_size = 14 * zoom
+        offset_x = (offset_x + event.x) * (zoom / prev_zoom) - event.x
+        offset_y = (offset_y + event.y) * (zoom / prev_zoom) - event.y
+        if table_mode.get() == 1:
+            self.draw_food()
+        for i in self.life:
+            i.draw_update()
 
 
 class Alive:
@@ -240,8 +367,6 @@ class Alive:
         if parent == 0:
             self.neuro_invest = learning.NeuralNet(learning.generate_layers([4, 3]))
             self.neuro_move = learning.NeuralNet(learning.generate_layers([5, 4]))
-        else:
-            self.neuro = None
 
         #Генетические свойства
         self.can_photo = 0 #Может ли питаться от энергии солнца
@@ -251,17 +376,89 @@ class Alive:
         self.table.data[self.x][self.y] = 1
         self.image = self.draw()
 
+    def dec_normalize(self):
+        dec_move_new = self.dec_move / (self.dec_move + self.dec_mult + self.dec_noth)
+        dec_mult_new = self.dec_mult / (self.dec_move + self.dec_mult + self.dec_noth)
+        dec_noth_new = self.dec_noth / (self.dec_move + self.dec_mult + self.dec_noth)
+        self.dec_move = dec_move_new
+        self.dec_mult = dec_mult_new
+        self.dec_noth = dec_noth_new
+
+    def death(self):
+        self.table.data[self.x][self.y] = 0
+        for i in self.image:
+            self.canvas.delete(i)
+        self.table.life.remove(self)
+        self.table.food_data[self.x][self.y] += 15 + self.energy
+
     def draw(self):
-        image = [self.canvas.create_rectangle(
-            self.x * 20, self.y * 20, self.x * 20 + 19, self.y * 20 + 19,
-            outline=rgb(0, 0, 0), fill=rgb(self.red_color, self.green_color, self.blue_color))]
-        if self.can_photo == 1:
-            image.append(self.canvas.create_line(self.x * 20, self.y * 20, self.x * 20 + 19, self.y * 20 + 19,
-                                             fill=rgb(0, 0, 0)))
-        if self.can_assim == 1:
-            image.append(self.canvas.create_line(self.x * 20 + 19, self.y * 20, self.x * 20, self.y * 20 + 19,
-                                             fill=rgb(0, 0, 0)))
+        x1 = self.x * cell_size - offset_x
+        y1 = self.y * cell_size - offset_y
+        x2 = (self.x + 1) * cell_size - offset_x
+        y2 = (self.y + 1) * cell_size - offset_y
+        if x1 < screen_w and y1 < screen_h and x2 > 0 and y2 > 0:
+            image = [self.canvas.create_rectangle(
+                max(0, x1),
+                max(0, y1),
+                min(screen_w, x2),
+                min(screen_h, y2),
+                outline=rgb(0, 0, 0), fill=rgb(self.red_color, self.green_color, self.blue_color),
+                tag="main_rect")]
+            if self.can_photo == 1:
+                a = check_line_visibility(x1, y1, x2, y2)
+                if a[0]:
+                    x3, y3, x4, y4 = a[1], a[2], a[3], a[4]
+                    image.append(self.canvas.create_line(x3, y3, x4, y4, fill=rgb(0, 0, 0),
+                                                         tag="can_photo"))
+            if self.can_assim == 1:
+                a = check_line_visibility(x1, y2, x2, y1)
+                if a[0]:
+                    x3, y3, x4, y4 = a[1], a[2], a[3], a[4]
+                    image.append(self.canvas.create_line(x3, y3, x4, y4, fill=rgb(0, 0, 0),
+                                                         tag="can_assim"))
+        else:
+            image = []
         return image
+
+    def draw_update(self):
+        x1 = self.x * cell_size - offset_x
+        y1 = self.y * cell_size - offset_y
+        x2 = (self.x + 1) * cell_size - offset_x
+        y2 = (self.y + 1) * cell_size - offset_y
+        if self.image == [] and x1 < screen_w and y1 < screen_h and x2 > 0 and y2 > 0:
+            self.image = self.draw()
+            return
+        if x1 < screen_w and y1 < screen_h and x2 > 0 and y2 > 0:
+            for i in self.image:
+                if self.canvas.gettags(i) == ("main_rect",):
+                    self.canvas.coords(i, max(0, x1), max(0, y1),
+                                        min(screen_w, x2), min(screen_h, y2))
+                if self.canvas.gettags(i) == ("can_photo",):
+                    a = check_line_visibility(x1, y1, x2, y2)
+                    if a[0]:
+                        x3, y3, x4, y4 = a[1], a[2], a[3], a[4]
+                        self.canvas.coords(i, x3, y3, x4, y4)
+                    else:
+                        self.canvas.coords(i, 1008, 700, 1009, 700)
+                if self.canvas.gettags(i) == ("can_assim",):
+                    a = check_line_visibility(x1, y2, x2, y1)
+                    if a[0]:
+                        x3, y3, x4, y4 = a[1], a[2], a[3], a[4]
+                        self.canvas.coords(i, x3, y3, x4, y4)
+                    else:
+                        self.canvas.coords(i, 1008, 700, 1009, 700)
+        else:
+            for i in self.image:
+                self.canvas.delete(i)
+            self.image.clear()
+
+    def eat(self):
+        if self.table.food_data[self.x][self.y] >= 7.5:
+            self.table.food_data[self.x][self.y] -= 7.5
+            self.energy += 7.5 * 0.85
+        else:
+            self.energy += self.table.food_data[self.x][self.y] * 0.85
+            self.table.food_data[self.x][self.y] = 0
 
     def genome(self, child):
         major_mutate = np.random.choice([0, 1, 2], p=[0.985, 0.014, 0.001])
@@ -338,13 +535,134 @@ class Alive:
             child.canvas.delete(i)
         child.image = child.draw()
 
-    def dec_normalize(self):
-        dec_move_new = self.dec_move / (self.dec_move + self.dec_mult + self.dec_noth)
-        dec_mult_new = self.dec_mult / (self.dec_move + self.dec_mult + self.dec_noth)
-        dec_noth_new = self.dec_noth / (self.dec_move + self.dec_mult + self.dec_noth)
-        self.dec_move = dec_move_new
-        self.dec_mult = dec_mult_new
-        self.dec_noth = dec_noth_new
+    def look_around(self):
+        output = [self.table.food_data[self.x][self.y] / 255]
+        space = 0
+        if self.table.isfree(self.x, self.y - 1):
+            space += 0.25
+        if self.table.isfree(self.x + 1, self.y):
+            space += 0.25
+        if self.table.isfree(self.x, self.y + 1):
+            space += 0.25
+        if self.table.isfree(self.x - 1, self.y):
+            space += 0.25
+        output.append(space)
+        return output
+
+    def look_for_food(self):
+        output = [self.table.food_data[self.x][self.y] / 255]
+        space = 0
+        if self.table.isfree(self.x, self.y - 1):
+            output.append(self.table.food_data[self.x][self.y - 1] / 255)
+        else:
+            output.append(0)
+        if self.table.isfree(self.x + 1, self.y):
+            output.append(self.table.food_data[self.x + 1][self.y] / 255)
+        else:
+            output.append(0)
+        if self.table.isfree(self.x, self.y + 1):
+            output.append(self.table.food_data[self.x][self.y + 1] / 255)
+        else:
+            output.append(0)
+        if self.table.isfree(self.x - 1, self.y):
+            output.append(self.table.food_data[self.x - 1][self.y] / 255)
+        else:
+            output.append(0)
+        return output
+
+    def move(self, direction):
+        if direction == 'up':
+            if self.table.isfree(self.x, self.y - 1):
+                self.table.data[self.x][self.y] = 0
+                self.y -= 1
+                self.table.data[self.x][self.y] = 1
+            else:
+                return False
+        if direction == 'down':
+            if self.table.isfree(self.x, self.y + 1):
+                self.table.data[self.x][self.y] = 0
+                self.y += 1
+                self.table.data[self.x][self.y] = 1
+            else:
+                return False
+        if direction == 'left':
+            if self.table.isfree(self.x - 1, self.y):
+                self.table.data[self.x][self.y] = 0
+                self.x -= 1
+                self.table.data[self.x][self.y] = 1
+            else:
+                return False
+        if direction == 'right':
+            if self.table.isfree(self.x + 1, self.y):
+                self.table.data[self.x][self.y] = 0
+                self.x += 1
+                self.table.data[self.x][self.y] = 1
+            else:
+                return False
+        self.draw_update()
+        return True
+
+    def move_choice(self, values):
+        values = sorted(enumerate(values), key=lambda n: -n[1])
+        for i in range(0, 4):
+            direction = values[i][0]
+            if direction == 0:
+                if self.table.isfree(self.x, self.y - 1):
+                    return direction
+                else:
+                    continue
+            if direction == 1:
+                if self.table.isfree(self.x + 1, self.y):
+                    return direction
+                else:
+                    continue
+            if direction == 2:
+                if self.table.isfree(self.x, self.y + 1):
+                    return direction
+                else:
+                    continue
+            if direction == 3:
+                if self.table.isfree(self.x - 1, self.y):
+                    return direction
+                else:
+                    continue
+        return np.random.randint(0, 4)
+
+    def multiply(self):
+        t = [0, 0, 0, 0]
+        if self.table.isfree(self.x, self.y - 1):
+            t[0] = 1
+        if self.table.isfree(self.x + 1, self.y):
+            t[1] = 1
+        if self.table.isfree(self.x, self.y + 1):
+            t[2] = 1
+        if self.table.isfree(self.x - 1, self.y):
+            t[3] = 1
+        n = t.count(1)
+        if n == 0:
+            return False
+        p = [t[i] * (1 / n) for i in range(0, 4)]
+        direction = np.random.choice(move_dict, p=p)
+        if direction == 'up':
+            child = Alive(self.x, self.y - 1, self.canvas, self.table, 45, 1)
+            self.table.life.append(child)
+            self.genome(child)
+            return True
+        if direction == 'right':
+            child = Alive(self.x + 1, self.y, self.canvas, self.table, 45, 1)
+            self.table.life.append(child)
+            self.genome(child)
+            return True
+        if direction == 'down':
+            child = Alive(self.x, self.y + 1, self.canvas, self.table, 45, 1)
+            self.table.life.append(child)
+            self.genome(child)
+            return True
+        if direction == 'left':
+            child = Alive(self.x - 1, self.y, self.canvas, self.table, 45, 1)
+            self.table.life.append(child)
+            self.genome(child)
+            return True
 
     def next(self):
         self.dec_normalize()
@@ -392,154 +710,6 @@ class Alive:
             if self.multiply():
                 self.mult -= 45 + 5 * (0.5 + self.membrane)
 
-    def move_choice(self, values):
-        values = sorted(enumerate(values), key=lambda n: -n[1])
-        for i in range(0, 4):
-            direction = values[i][0]
-            if direction == 0:
-                if self.table.isfree(self.x, self.y - 1):
-                    return direction
-                else:
-                    continue
-            if direction == 1:
-                if self.table.isfree(self.x + 1, self.y):
-                    return direction
-                else:
-                    continue
-            if direction == 2:
-                if self.table.isfree(self.x, self.y + 1):
-                    return direction
-                else:
-                    continue
-            if direction == 3:
-                if self.table.isfree(self.x - 1, self.y):
-                    return direction
-                else:
-                    continue
-        return np.random.randint(0, 4)
-
-
-    def look_around(self):
-        output = [self.table.food_data[self.x][self.y] / 255]
-        space = 0
-        if self.table.isfree(self.x, self.y - 1):
-            space += 0.25
-        if self.table.isfree(self.x + 1, self.y):
-            space += 0.25
-        if self.table.isfree(self.x, self.y + 1):
-            space += 0.25
-        if self.table.isfree(self.x - 1, self.y):
-            space += 0.25
-        output.append(space)
-        return output
-
-    def look_for_food(self):
-        output = [self.table.food_data[self.x][self.y] / 255]
-        space = 0
-        if self.table.isfree(self.x, self.y - 1):
-            output.append(self.table.food_data[self.x][self.y - 1] / 255)
-        else:
-            output.append(0)
-        if self.table.isfree(self.x + 1, self.y):
-            output.append(self.table.food_data[self.x + 1][self.y] / 255)
-        else:
-            output.append(0)
-        if self.table.isfree(self.x, self.y + 1):
-            output.append(self.table.food_data[self.x][self.y + 1] / 255)
-        else:
-            output.append(0)
-        if self.table.isfree(self.x - 1, self.y):
-            output.append(self.table.food_data[self.x - 1][self.y] / 255)
-        else:
-            output.append(0)
-        return output
-
-    def death(self):
-        self.table.data[self.x][self.y] = 0
-        for i in self.image:
-            self.canvas.delete(i)
-        self.table.life.remove(self)
-        self.table.food_data[self.x][self.y] += 15 + self.energy
-
-    def eat(self):
-        if self.table.food_data[self.x][self.y] >= 7.5:
-            self.table.food_data[self.x][self.y] -= 7.5
-            self.energy += 7.5 * 0.85
-        else:
-            self.energy += self.table.food_data[self.x][self.y] * 0.85
-            self.table.food_data[self.x][self.y] = 0
-
-    def multiply(self):
-        t = [0, 0, 0, 0]
-        if self.table.isfree(self.x, self.y - 1):
-            t[0] = 1
-        if self.table.isfree(self.x + 1, self.y):
-            t[1] = 1
-        if self.table.isfree(self.x, self.y + 1):
-            t[2] = 1
-        if self.table.isfree(self.x - 1, self.y):
-            t[3] = 1
-        n = t.count(1)
-        if n == 0:
-            return False
-        p = [t[i] * (1 / n) for i in range(0, 4)]
-        direction = np.random.choice(move_dict, p=p)
-        if direction == 'up':
-            child = Alive(self.x, self.y - 1, self.canvas, self.table, 45, 1)
-            self.table.life.append(child)
-            self.genome(child)
-            return True
-        if direction == 'right':
-            child = Alive(self.x + 1, self.y, self.canvas, self.table, 45, 1)
-            self.table.life.append(child)
-            self.genome(child)
-            return True
-        if direction == 'down':
-            child = Alive(self.x, self.y + 1, self.canvas, self.table, 45, 1)
-            self.table.life.append(child)
-            self.genome(child)
-            return True
-        if direction == 'left':
-            child = Alive(self.x - 1, self.y, self.canvas, self.table, 45, 1)
-            self.table.life.append(child)
-            self.genome(child)
-            return True
-
-    def move(self, direction):
-        if direction == 'up':
-            if self.table.isfree(self.x, self.y - 1):
-                self.table.data[self.x][self.y] = 0
-                self.y -= 1
-                self.table.data[self.x][self.y] = 1
-            else:
-                return False
-        if direction == 'down':
-            if self.table.isfree(self.x, self.y + 1):
-                self.table.data[self.x][self.y] = 0
-                self.y += 1
-                self.table.data[self.x][self.y] = 1
-            else:
-                return False
-        if direction == 'left':
-            if self.table.isfree(self.x - 1, self.y):
-                self.table.data[self.x][self.y] = 0
-                self.x -= 1
-                self.table.data[self.x][self.y] = 1
-            else:
-                return False
-        if direction == 'right':
-            if self.table.isfree(self.x + 1, self.y):
-                self.table.data[self.x][self.y] = 0
-                self.x += 1
-                self.table.data[self.x][self.y] = 1
-            else:
-                return False
-        for i in self.image:
-            self.canvas.delete(i)
-        self.image = self.draw()
-        return True
-
-
 def rgb(red, green, blue):
     red = int(max(0, min(255, red)))
     green = int(max(0, min(255, green)))
@@ -553,36 +723,94 @@ def rgb(red, green, blue):
     return '#' + rt + hex(red)[2:] + gt + hex(green)[2:] + bt + hex(blue)[2:]
 
 
+def check_line_visibility(x1, y1, x2, y2):
+    visible = True
+    if x1 > x2:
+        x1, x2 = x2, x1
+        y1, y2 = y2, y1
+    a = (y2 - y1) / (x2 - x1)
+    b = y1 - (x1 * a)
+    x3 = -b / a
+    if y1 < y2:
+        if x3 < 0:
+            x3 = 0
+            y3 = b
+            if y3 < 0 or y3 > screen_h:
+                visible = False
+        else:
+            y3 = 0
+    else:
+        if x3 > screen_w:
+            x3 = screen_w
+            y3 = a * x3 + b
+            if y3 < 0 or y3 > screen_h:
+                visible = False
+        else:
+            y3 = 0
+    x4 = (screen_h - b) / a
+    if y1 < y2:
+        if x4 > screen_w:
+            x4 = screen_w
+            y4 = a * x4 + b
+            if y4 < 0 or y4 > screen_h:
+                visible = False
+        else:
+            y4 = screen_h
+    else:
+        if x4 < 0:
+            x4 = 0
+            y4 = b
+            if y4 < 0 or y4 > screen_h:
+                visible = False
+        else:
+            y4 = screen_h
+    if x3 > x4:
+        x3, x4 = x4, x3
+        y3, y4 = y4, y3
+    if x3 < x1: x3 = x1
+    if x4 > x2: x4 = x2
+    if y1 < y2:
+        if y3 < y1: y3 = y1
+        if y4 > y2: y4 = y2
+    else:
+        if y3 > y1: y3 = y1
+        if y4 < y2: y4 = y2
+    return [visible, x3, y3, x4, y4]
+
+
 def main():
     global mutation_mult
+    global fps
     countdown = 300
     canvas = tkinter.Canvas(root, width=1200, height=800, bg='white')
     #canvas.pack(fill=tkinter.BOTH, expand=0)
     canvas.place(x=0, y=0, width=1200, height=800)
     canvas.create_line(0, 700, 12000, 700, fill=rgb(0, 0, 0))
     canvas.create_line(151, 700, 151, 800, fill=rgb(0, 0, 0))
-    canvas.create_line(1000, 0, 1000, 700, fill=rgb(0, 0, 0))
-    table = Table(canvas, 50, 35)
+    canvas.create_line(1008, 0, 1008, 700, fill=rgb(0, 0, 0))
+    table = Table(canvas, 72, 50)
     #Объявление кнопок
     tm1 = tkinter.Radiobutton(text='Выключить всё', variable=table_mode, value=0, bg='white',
-                              command=lambda i=table: table.change_mode()).place(x=1006, y=10)
+                              command=lambda i=table: table.change_mode()).place(x=1014, y=10)
     tm2 = tkinter.Radiobutton(text='Отобразить богатство органикой', variable=table_mode, value=1, bg='white',
-                              command=lambda i=table: table.change_mode()).place(x=1006, y=30)
+                              command=lambda i=table: table.change_mode()).place(x=1014, y=30)
     #tm3 = tkinter.Radiobutton(text='Выключить всё', variable=table_mod, value=0, bg='white').place(x=806, y=10)
     while True:
-        time.sleep(0.08)
+        start_time = time.time()
         if len(table.life) > 0:
             table.next()
         else:
             if countdown == 0:
                 table.create_life()
                 table.food_mult = 1.0
-                mutation_mult = 20.0
+                mutation_mult = 22.5
                 countdown = 300
             else:
                 table.next()
+                table.food_mult = 5.0
                 countdown -= 1
         root.update()
+        fps = 1.0 / (time.time() - start_time + 0.00001)
     root.mainloop()
 
 
