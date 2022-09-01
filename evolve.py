@@ -1,4 +1,4 @@
-#Version 1.2.2
+#Version 1.2.3
 import tkinter
 import time
 import learning
@@ -96,7 +96,7 @@ class Table:
                 y2 = (j + 1) * cell_size - 1 - offset_y
                 color = self.food_data[i][j]
                 color = max(0, min(255, color))
-                if x1 >= screen_w or y1 >= screen_h or x2 < 0 or y2 < 0:
+                if x1 >= screen_w or y1 >= screen_h or x2 < 0 or y2 < 0 or self.data[i][j] == 1:
                     self.canvas.itemconfig(self.food_data_images[i][j], state="hidden")
                     continue
                 self.canvas.itemconfig(self.food_data_images[i][j], state="normal")
@@ -405,8 +405,8 @@ class Alive:
     def draw(self):
         x1 = self.x * cell_size - offset_x
         y1 = self.y * cell_size - offset_y
-        x2 = (self.x + 1) * cell_size - offset_x
-        y2 = (self.y + 1) * cell_size - offset_y
+        x2 = (self.x + 1) * cell_size - offset_x - 1
+        y2 = (self.y + 1) * cell_size - offset_y - 1
         if x1 < screen_w and y1 < screen_h and x2 > 0 and y2 > 0:
             image = [self.canvas.create_rectangle(
                 max(0, x1),
@@ -434,13 +434,14 @@ class Alive:
     def draw_update(self):
         x1 = self.x * cell_size - offset_x
         y1 = self.y * cell_size - offset_y
-        x2 = (self.x + 1) * cell_size - offset_x
-        y2 = (self.y + 1) * cell_size - offset_y
+        x2 = (self.x + 1) * cell_size - offset_x - 1
+        y2 = (self.y + 1) * cell_size - offset_y - 1
         if self.image == [] and x1 < screen_w and y1 < screen_h and x2 > 0 and y2 > 0:
             self.image = self.draw()
             return
         if x1 < screen_w and y1 < screen_h and x2 > 0 and y2 > 0:
             for i in self.image:
+                self.canvas.itemconfig(i, state="normal")
                 if self.canvas.gettags(i) == ("main_rect",):
                     self.canvas.coords(i, max(0, x1), max(0, y1),
                                         min(screen_w, x2), min(screen_h, y2))
@@ -460,8 +461,7 @@ class Alive:
                         self.canvas.coords(i, 1008, 700, 1009, 700)
         else:
             for i in self.image:
-                self.canvas.delete(i)
-            self.image.clear()
+                self.canvas.itemconfig(i, state="hidden")
 
     def eat(self):
         if self.table.food_data[self.x][self.y] >= 7.5:
@@ -676,13 +676,12 @@ class Alive:
             return True
 
     def next(self):
-        self.dec_normalize()
         self.age += 1
         if self.can_photo == 1:
             self.energy += (((255 - self.red_color) + (255 - self.blue_color) + self.green_color) / 510) * photo_eff
-        self.energy -= 0.1 + (0.4 * self.speed) + (0.02 * self.age) + (0.3 * self.can_photo) + (0.3 * self.can_assim) \
+        self.energy -= 0.1 + (0.4 * self.speed) + (0.01 * self.age) + (0.3 * self.can_photo) + (0.3 * self.can_assim) \
                        - (0.1 * self.membrane)
-        if self.age > 80 + (40 / (0.5 + self.speed)) + (50 * self.membrane):
+        if self.age > 150 + (50 / (0.5 + self.speed)) + (100 * self.membrane):
             self.death()
             return
         if self.can_assim == 1:
@@ -706,7 +705,7 @@ class Alive:
         self.dec_normalize()
         if self.energy > self.invest:
             self.energy -= self.invest * (1 - self.dec_noth)
-            if self.movement < 3 * (5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)):
+            if self.movement < 5 * (0.3 * (1 / (0.2 + self.speed)) + (0.05 * self.membrane)):
                 self.movement += self.invest * self.dec_move
             else:
                 self.energy += self.invest * self.dec_mult
@@ -714,9 +713,9 @@ class Alive:
                 self.mult += self.invest * self.dec_mult
             else:
                 self.energy += self.invest * self.dec_mult
-        if self.movement >= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane):
+        if self.movement >= 0.3 * (1 / (0.2 + self.speed)) + (0.05 * self.membrane):
             if self.move(move_dict[move_dir]):
-                self.movement -= 5.0 * (1 / (0.2 + self.speed)) + (2.0 * self.membrane)
+                self.movement -= 0.3 * (1 / (0.2 + self.speed)) + (0.05 * self.membrane)
         if self.mult >= 45 + 5 * (0.5 + self.membrane):
             if self.multiply():
                 self.mult -= 45 + 5 * (0.5 + self.membrane)
