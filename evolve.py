@@ -1,4 +1,4 @@
-#Version 1.2.3
+#Version 1.2.4
 import tkinter
 import time
 import learning
@@ -8,7 +8,7 @@ root = tkinter.Tk()
 root.title("Evolve")
 root.geometry("1200x800")
 move_dict = ['up', 'right', 'down', 'left']
-photo_eff = 1.25
+photo_eff = 1.0
 mutation_mult = 22.5
 table_mode = tkinter.IntVar()
 table_mode.set(1)
@@ -28,7 +28,7 @@ class Table:
         self.width = width
         self.height = height
         self.data = [[0 for j in range(0, height)] for i in range(0, width)]
-        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 200, 0)]
+        self.life = [Alive(np.random.randint(0, self.width), np.random.randint(0, self.height), canvas, self, 100, 0)]
         self.food_data = [[0 for j in range(0, height)] for i in range(0, width)]
         for i in range(0, width):
             for j in range(0, height):
@@ -84,8 +84,8 @@ class Table:
         for i in range(0, self.width):
             for j in range(0, self.height):
                 if self.isfree(i, j):
-                    if np.random.choice([0, 1], p=[0.97, 0.03]):
-                        self.life.append(Alive(i, j, self.canvas, self, 200, 0))
+                    if np.random.choice([0, 1], p=[0.98, 0.02]):
+                        self.life.append(Alive(i, j, self.canvas, self, 100, 0))
 
     def draw_food(self):
         for i in range(0, self.width):
@@ -188,7 +188,7 @@ class Table:
             fill=rgb(180, 180, 180)
         )
         self.stat_photo = self.canvas.create_rectangle(
-            76, 800, 90, 800 - (photo_eff * 99 / 1.25),
+            76, 800, 90, 800 - (photo_eff * 99 / 1.0),
             outline=rgb(180, 180, 180),
             fill=rgb(160, 140, 30)
         )
@@ -231,7 +231,7 @@ class Table:
         self.canvas.coords(self.stat_blue, 31, 800, 45, 800 - (world_blue * 99 / 255))
         self.canvas.coords(self.stat_energy, 46, 800, 60, 800 - ((min(200, world_energy) * 99) / 200))
         self.canvas.coords(self.stat_food, 61, 800, 75, 800 - (world_food * 99 / 255))
-        self.canvas.coords(self.stat_photo, 76, 800, 90, 800 - (photo_eff * 99 / 1.25))
+        self.canvas.coords(self.stat_photo, 76, 800, 90, 800 - (photo_eff * 99 / 1.0))
         self.canvas.itemconfig(self.stat_fps, text="FPS: " + str(int(fps * 1000) / 1000))
 
     def isfree(self, x, y):
@@ -248,13 +248,13 @@ class Table:
             for j in range(0, self.height):
                 mult = 0.0
                 if i < int(self.width / 2) - 1 and j < int(self.height / 2) - 1:
-                    mult = max(0.0, 3.0 - self.food_data[i][j] / 70) * self.food_mult
+                    mult = max(0.0, 2.0 - self.food_data[i][j] / 100) * self.food_mult
                 if i < int(self.width / 2) - 1 and j > int(self.height / 2) + 1:
-                    mult = max(0.0, 1.5 - self.food_data[i][j] / 100) * self.food_mult
+                    mult = max(0.0, 1.0 - self.food_data[i][j] / 200) * self.food_mult
                 if i > int(self.width / 2) + 1 and j < int(self.height / 2) - 1:
-                    mult = max(0.0, 1.5 - self.food_data[i][j] / 100) * self.food_mult
+                    mult = max(0.0, 1.0 - self.food_data[i][j] / 200) * self.food_mult
                 if i > int(self.width / 2) + 1 and j > int(self.height / 2) + 1:
-                    mult = max(0.0, 0.25 - self.food_data[i][j] / 120) * self.food_mult
+                    mult = max(0.0, 0.5 - self.food_data[i][j] / 400) * self.food_mult
                 self.food_data[i][j] += np.random.choice(
                     [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
                     p=[0.1, 0.15, 0.72, 0.03]) * mult
@@ -304,11 +304,11 @@ class Table:
         self.step += 1
         global photo_eff
         global mutation_mult
-        photo_eff = 1.2 * np.sin((self.step % (900 * np.pi)) / 900)
+        photo_eff = 1.0 * np.sin((self.step % (900 * np.pi)) / 900)
         if mutation_mult > 0.65:
             mutation_mult *= 0.99
-        if self.food_mult > 0.25:
-            self.food_mult *= 0.998
+        if self.food_mult > 0.20:
+            self.food_mult *= 0.995
         for i in self.life:
             i.next()
         self.food_refresh()
@@ -798,7 +798,7 @@ def main():
     canvas.create_line(0, 700, 12000, 700, fill=rgb(0, 0, 0))
     canvas.create_line(151, 700, 151, 800, fill=rgb(0, 0, 0))
     canvas.create_line(1008, 0, 1008, 700, fill=rgb(0, 0, 0))
-    table = Table(canvas, 120, 80)
+    table = Table(canvas, 80, 60)
     #Объявление кнопок
     tm1 = tkinter.Radiobutton(text='Выключить всё', variable=table_mode, value=0, bg='white',
                               command=lambda i=table: table.change_mode()).place(x=1014, y=10)
