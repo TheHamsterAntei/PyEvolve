@@ -1,4 +1,4 @@
-#Version 1.2.4
+#Version 1.2.5
 import tkinter
 import time
 import learning
@@ -464,9 +464,9 @@ class Alive:
                 self.canvas.itemconfig(i, state="hidden")
 
     def eat(self):
-        if self.table.food_data[self.x][self.y] >= 7.5:
-            self.table.food_data[self.x][self.y] -= 7.5
-            self.energy += 7.5 * 0.85
+        if self.table.food_data[self.x][self.y] >= 10.0:
+            self.table.food_data[self.x][self.y] -= 10.0
+            self.energy += 10.0 * 0.85
         else:
             self.energy += self.table.food_data[self.x][self.y] * 0.85
             self.table.food_data[self.x][self.y] = 0
@@ -679,8 +679,12 @@ class Alive:
         self.age += 1
         if self.can_photo == 1:
             self.energy += (((255 - self.red_color) + (255 - self.blue_color) + self.green_color) / 510) * photo_eff
-        self.energy -= 0.1 + (0.4 * self.speed) + (0.01 * self.age) + (0.3 * self.can_photo) + (0.3 * self.can_assim) \
+        energy_cost = 0.2 + (0.4 * self.speed) + (0.02 * self.age) + (0.3 * self.can_photo) + (0.3 * self.can_assim) \
                        - (0.1 * self.membrane)
+        if energy_cost < 0.7: energy_cost = 0.7
+        energy_cost += max(0.0, self.energy - 200) / 150
+        energy_cost += max(0.0, self.table.food_data[self.x][self.y] - 150) / 20
+        self.energy -= energy_cost
         if self.age > 150 + (50 / (0.5 + self.speed)) + (100 * self.membrane):
             self.death()
             return
@@ -694,6 +698,14 @@ class Alive:
             if self.energy <= 0:
                 self.death()
                 return
+        if self.energy >= 500:
+            self.energy = 50
+            for i in self.table.life:
+                distance = np.sqrt((i.x - self.x)**2 + (i.y - self.y)**2)
+                if distance < 5.0 - i.membrane * 0.5:
+                    i.energy *= 0.5
+                    i.death()
+            self.death()
         result = self.look_around()
         result.append(self.energy)
         result.append(photo_eff / 1.2)
