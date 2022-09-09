@@ -1,4 +1,4 @@
-#Version 1.2.6
+#Version 1.2.7
 import tkinter
 import time
 import learning
@@ -247,14 +247,15 @@ class Table:
         for i in range(0, self.width):
             for j in range(0, self.height):
                 mult = 0.0
-                if i < int(self.width / 2) - 1 and j < int(self.height / 2) - 1:
-                    mult = max(0.0, 2.0 - self.food_data[i][j] / 100) * self.food_mult
-                if i < int(self.width / 2) - 1 and j > int(self.height / 2) + 1:
-                    mult = max(0.0, 1.0 - self.food_data[i][j] / 200) * self.food_mult
-                if i > int(self.width / 2) + 1 and j < int(self.height / 2) - 1:
-                    mult = max(0.0, 1.0 - self.food_data[i][j] / 200) * self.food_mult
-                if i > int(self.width / 2) + 1 and j > int(self.height / 2) + 1:
-                    mult = max(0.0, 0.5 - self.food_data[i][j] / 400) * self.food_mult
+                if self.data[i][j] == 0:
+                    if i < int(self.width / 2) - 1 and j < int(self.height / 2) - 1:
+                        mult = max(0.0, 2.0 - self.food_data[i][j] / 100) * self.food_mult
+                    if i < int(self.width / 2) - 1 and j > int(self.height / 2) + 1:
+                        mult = max(0.0, 1.0 - self.food_data[i][j] / 200) * self.food_mult
+                    if i > int(self.width / 2) + 1 and j < int(self.height / 2) - 1:
+                        mult = max(0.0, 1.0 - self.food_data[i][j] / 200) * self.food_mult
+                    if i > int(self.width / 2) + 1 and j > int(self.height / 2) + 1:
+                        mult = max(0.0, 0.5 - self.food_data[i][j] / 400) * self.food_mult
                 self.food_data[i][j] += np.random.choice(
                     [0, np.random.uniform(0.01, 0.05), np.random.uniform(0.03, 0.25), 1.0],
                     p=[0.1, 0.15, 0.72, 0.03]) * mult
@@ -307,7 +308,7 @@ class Table:
         photo_eff = 1.0 * np.sin((self.step % (900 * np.pi)) / 900)
         if mutation_mult > 0.65:
             mutation_mult *= 0.99
-        if self.food_mult > 0.20:
+        if self.food_mult > 0.40:
             self.food_mult *= 0.995
         for i in self.life:
             i.next()
@@ -464,9 +465,9 @@ class Alive:
                 self.canvas.itemconfig(i, state="hidden")
 
     def eat(self):
-        if self.table.food_data[self.x][self.y] >= 10.0:
-            self.table.food_data[self.x][self.y] -= 10.0
-            self.energy += 10.0 * 0.85
+        if self.table.food_data[self.x][self.y] >= 8.0:
+            self.table.food_data[self.x][self.y] -= 8.0
+            self.energy += 8.0 * 0.85
         else:
             self.energy += self.table.food_data[self.x][self.y] * 0.85
             self.table.food_data[self.x][self.y] = 0
@@ -562,7 +563,6 @@ class Alive:
 
     def look_for_food(self):
         output = [self.table.food_data[self.x][self.y] / 255]
-        space = 0
         if self.table.isfree(self.x, self.y - 1):
             output.append(self.table.food_data[self.x][self.y - 1] / 255)
         else:
@@ -717,15 +717,12 @@ class Alive:
         move_dir = self.move_choice(self.neuro_move.get_output(self.look_for_food()))
         self.dec_normalize()
         if self.energy > self.invest:
-            self.energy -= self.invest * (1 - self.dec_noth)
             if self.movement < 5 * (0.3 * (1 / (0.2 + self.speed)) + (0.05 * self.membrane)):
                 self.movement += self.invest * self.dec_move
-            else:
-                self.energy += self.invest * self.dec_mult
+                self.energy -= self.invest * self.dec_move
             if self.mult < 1.5 * (45 + 5 * (0.5 + self.membrane)):
                 self.mult += self.invest * self.dec_mult
-            else:
-                self.energy += self.invest * self.dec_mult
+                self.energy -= self.invest * self.dec_mult
         if self.movement >= 0.3 * (1 / (0.2 + self.speed)) + (0.05 * self.membrane):
             if self.move(move_dict[move_dir]):
                 self.movement -= 0.3 * (1 / (0.2 + self.speed)) + (0.05 * self.membrane)
