@@ -1,4 +1,4 @@
-#Version 1.2.5
+#Version 1.2.6
 import tkinter
 import time
 import learning
@@ -702,10 +702,11 @@ class Alive:
             self.energy = 50
             for i in self.table.life:
                 distance = np.sqrt((i.x - self.x)**2 + (i.y - self.y)**2)
-                if distance < 5.0 - i.membrane * 0.5:
+                if distance < 5.0 - i.membrane * 0.5 and i != self:
                     i.energy *= 0.5
                     i.death()
             self.death()
+            return
         result = self.look_around()
         result.append(self.energy)
         result.append(photo_eff / 1.2)
